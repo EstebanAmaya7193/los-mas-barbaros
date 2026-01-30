@@ -177,7 +177,7 @@ export default function ControlIngresos() {
                     .sort((a, b) => b.total_ingresos - a.total_ingresos)
                     .slice(0, 3);
 
-                if (todayData) setTransactions(todayData as Transaction[]);
+                if (todayData) setTransactions(todayData as unknown as Transaction[]);
                 if (sortedServices) setServiceStats(sortedServices);
                 setWeeklyData(weeklyTotals);
                 setMonthlyTotals(monthWeeklyTotals);
