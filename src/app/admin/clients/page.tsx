@@ -13,69 +13,85 @@ interface Client {
     totalVisits?: number;
 }
 
+interface RawClientData {
+    id: string;
+    nombre: string;
+    telefono: string;
+    citas: {
+        fecha: string;
+        estado: string;
+    }[];
+}
+
 export default function ClientsDirectory() {
     const router = useRouter();
     const [clients, setClients] = useState<Client[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
 
-    async function fetchClients() {
-        setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-            router.push("/login");
-            return;
-        }
-
-        // Fetch clients with their recent appointments
-        const { data, error } = await supabase
-            .from("clientes")
-            .select(`
-                id,
-                nombre,
-                telefono,
-                citas (
-                    fecha,
-                    estado
-                )
-            `)
-            .order("nombre");
-
-        if (data) {
-            const formattedClients = data.map((c: any) => {
-                const completedCitas = c.citas
-                    .filter((apt: any) => apt.estado === "COMPLETADA")
-                    .sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-
-                let lastVisit = "Sin visitas";
-                if (completedCitas.length > 0) {
-                    const latest = new Date(completedCitas[0].fecha + "T00:00:00");
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    if (latest.getTime() === today.getTime()) {
-                        lastVisit = "Hoy";
-                    } else {
-                        lastVisit = latest.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
-                    }
-                }
-
-                return {
-                    id: c.id,
-                    nombre: c.nombre,
-                    telefono: c.telefono,
-                    lastVisit,
-                    totalVisits: completedCitas.length
-                };
-            });
-            setClients(formattedClients);
-        }
-        setLoading(false);
-    }
-
     useEffect(() => {
+        let isMounted = true;
+        
+        async function fetchClients() {
+            setLoading(true);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push("/login");
+                return;
+            }
+
+            // Fetch clients with their recent appointments
+            const { data, error } = await supabase
+                .from("clientes")
+                .select(`
+                    id,
+                    nombre,
+                    telefono,
+                    citas (
+                        fecha,
+                        estado
+                    )
+                `)
+                .order("nombre");
+
+            if (data && isMounted) {
+                const formattedClients = data.map((c: RawClientData) => {
+                    const completedCitas = c.citas
+                        .filter((apt) => apt.estado === "COMPLETADA")
+                        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+                    let lastVisit = "Sin visitas";
+                    if (completedCitas.length > 0) {
+                        const latest = new Date(completedCitas[0].fecha + "T00:00:00");
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        if (latest.getTime() === today.getTime()) {
+                            lastVisit = "Hoy";
+                        } else {
+                            lastVisit = latest.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+                        }
+                    }
+
+                    return {
+                        id: c.id,
+                        nombre: c.nombre,
+                        telefono: c.telefono,
+                        lastVisit,
+                        totalVisits: completedCitas.length
+                    };
+                });
+                setClients(formattedClients);
+            }
+            if (isMounted) setLoading(false);
+        }
+        
         fetchClients();
-    }, []);
+        
+        return () => {
+            isMounted = false;
+        };
+    }, [router]);
 
     const filteredClients = clients.filter(c =>
         c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||

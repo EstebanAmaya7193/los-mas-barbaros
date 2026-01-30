@@ -41,11 +41,12 @@ export default function RegisterPage() {
                 type: 'success',
                 text: "¡Cuenta creada! ✨ Revisa tu correo para confirmar y entrar."
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Registration error:", err);
+            const errorMessage = err instanceof Error ? err.message : "Error al crear la cuenta";
             setMessage({
                 type: 'error',
-                text: err.message || "Error al crear la cuenta"
+                text: errorMessage
             });
         } finally {
             setLoading(false);

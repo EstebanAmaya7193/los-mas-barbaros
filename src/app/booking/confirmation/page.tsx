@@ -16,10 +16,10 @@ interface AppointmentData {
     }[] | null;
     clientes: {
         nombre: string;
-    }[] | null;
+    } | null;
     servicios: {
         nombre: string;
-    }[] | null;
+    } | null;
 }
 
 function ConfirmationContent() {
@@ -110,31 +110,16 @@ function ConfirmationContent() {
         month: "short"
     });
 
-    const clientName = appointment.clientes?.nombre || appointment.clientes?.[0]?.nombre || '';
+    const clientName = appointment.clientes?.nombre || '';
     const firstName = (clientName === 'Cliente Web' || !clientName) ? "Bárbaro" : clientName.split(' ')[0];
     
-    // Debug para ver qué datos se están obteniendo
-    console.log('Datos del cliente:', appointment.clientes);
-    console.log('Nombre completo:', clientName);
-    console.log('Primer nombre:', firstName);
+
 
     const barberName = appointment.barberos?.[0]?.nombre || fallbackBarber?.nombre || '';
     const barberPhoto = appointment.barberos?.[0]?.foto_url || fallbackBarber?.foto_url || '';
 
-    const serviceName = appointment.servicios?.[0]?.nombre || 'Servicio';
-    
-    // Obtener todos los servicios si hay múltiples
-    let allServices = [];
-    
-    if (Array.isArray(appointment.servicios)) {
-        allServices = appointment.servicios.map(s => s.nombre).filter(Boolean);
-    } else if (appointment.servicios?.nombre) {
-        // Si es un objeto único
-        allServices = [appointment.servicios.nombre];
-    } else if (typeof appointment.servicios === 'string') {
-        // Si es un string
-        allServices = [appointment.servicios];
-    }
+    // Simplificar lógica de servicios - manejar objeto
+    const allServices = appointment.servicios?.nombre ? [appointment.servicios.nombre] : ['Servicio'];
     
     const serviceText = allServices.length > 1 
         ? `${allServices[0]} +${allServices.length - 1} más` 

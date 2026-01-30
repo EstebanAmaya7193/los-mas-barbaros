@@ -27,14 +27,34 @@ interface Appointment {
     } | null;
 }
 
+interface Bloqueo {
+    id: string;
+    barbero_id: string;
+    fecha: string;
+    hora_inicio: string;
+    hora_fin: string;
+    motivo?: string;
+}
+
+interface ScheduleData {
+    hora_inicio?: string;
+    hora_fin?: string;
+    [dateKey: string]: {
+        [timeKey: string]: {
+            available: boolean;
+            appointment?: Appointment;
+        };
+    } | string | undefined;
+}
+
 export default function DetailedAgenda() {
     const router = useRouter();
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString("en-CA")); // YYYY-MM-DD local
     const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [bloqueos, setBloqueos] = useState<any[]>([]);
-    const [schedule, setSchedule] = useState<any>(null);
+    const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
+    const [schedule, setSchedule] = useState<ScheduleData | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Fetch Barbers
@@ -87,7 +107,7 @@ export default function DetailedAgenda() {
                     .single()
             ]);
 
-            if (citasRes.data) setAppointments(citasRes.data as any);
+            if (citasRes.data) setAppointments(citasRes.data as unknown as Appointment[]);
             if (bloqueosRes.data) setBloqueos(bloqueosRes.data);
             if (scheduleRes.data) setSchedule(scheduleRes.data);
             else setSchedule(null);
