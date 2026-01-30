@@ -128,7 +128,7 @@ export default function ControlIngresos() {
                         
                         const dateStr = currentDay.toLocaleDateString("en-CA");
                         const dayData = monthData?.filter(cita => cita.fecha === dateStr) || [];
-                        const dayTotal = dayData?.reduce((sum: number, cita: any) => sum + Number(cita.monto_total), 0) || 0;
+                        const dayTotal = dayData?.reduce((sum: number, cita: { fecha: string; monto_total: number }) => sum + Number(cita.monto_total), 0) || 0;
                         weekTotal += dayTotal;
                     }
                     
