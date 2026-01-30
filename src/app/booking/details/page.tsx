@@ -23,6 +23,36 @@ interface TimeSlot {
     available: boolean;
 }
 
+interface Appointment {
+    hora_inicio: string;
+    hora_fin: string;
+    estado: string;
+}
+
+interface Schedule {
+    activo: boolean;
+    hora_inicio: string;
+    hora_fin: string;
+}
+
+interface Block {
+    id: string;
+    fecha: string;
+    hora_inicio: string;
+    hora_fin: string;
+}
+
+interface User {
+    id: string;
+    email?: string;
+    user_metadata?: {
+        name?: string;
+        full_name?: string;
+        phone?: string;
+        role?: string;
+    };
+}
+
 function BookingDetailsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -34,7 +64,7 @@ function BookingDetailsContent() {
 
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [selectedServiceDetails, setSelectedServiceDetails] = useState<Service[]>([]);
-    const [existingAppointments, setExistingAppointments] = useState<any[]>([]);
+    const [existingAppointments, setExistingAppointments] = useState<Appointment[]>([]);
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
     const [loading, setLoading] = useState(true);
@@ -44,7 +74,7 @@ function BookingDetailsContent() {
     const [clientPhone, setClientPhone] = useState("");
 
     const [dates, setDates] = useState<{ day: string, date: string }[]>([]);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
     const [isBarber, setIsBarber] = useState(false);
 
     // 0. Check Auth & Pre-fill
@@ -156,7 +186,7 @@ function BookingDetailsContent() {
         fetchAvailability();
     }, [selectedBarber, selectedDate]);
 
-    const generateTimeSlots = (occupied: any[], schedule: any, blocks: any[]) => {
+    const generateTimeSlots = (occupied: Appointment[], schedule: Schedule | null, blocks: Block[]) => {
         const slots: TimeSlot[] = [];
 
         // If day is not active, return no slots
@@ -309,9 +339,10 @@ function BookingDetailsContent() {
             if (bookingError) throw bookingError;
 
             router.push(`/booking/confirmation?id=${bookingData.id}`);
-        } catch (error: any) {
-            console.error("Booking error:", error.message || error);
-            alert(`Error al agendar cita: ${error.message || "Intenta de nuevo"}`);
+        } catch (error: unknown) {
+            console.error("Booking error:", error);
+            const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+            alert(`Error al agendar cita: ${errorMessage}`);
         } finally {
             setIsBooking(false);
         }
@@ -441,19 +472,37 @@ function BookingDetailsContent() {
                 </div>
             </div>
 
-            <div className="fixed bottom-0 w-full bg-gradient-to-t from-white via-white/95 dark:from-background-dark p-4 pb-8 z-40">
-                <div className="flex items-center justify-between mb-3 px-2">
-                    <span className="text-sm font-medium text-neutral-500">Total {totalDuration} min</span>
-                    <span className="text-xl font-bold text-primary dark:text-white">${formatCOP(totalPrice)}</span>
+            {/* Espacio de separación antes del precio */}
+            <div className="h-8"></div>
+
+            <div className="fixed bottom-0 w-full z-40">
+                {/* Content */}
+                <div className="relative p-4 pb-4 pt-4">
+                    <div className="relative flex items-center justify-between mb-6 px-2">
+                        {/* Blur Background - cubre exactamente este elemento */}
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl -mx-2 -my-1"></div>
+                        
+                        <div className="relative flex flex-col gap-1">
+                            <span className="text-sm font-medium text-neutral-500">Total {totalDuration} min</span>
+                            {selectedDate && selectedTime && (
+                                <span className="text-xs text-neutral-400">
+                                    {selectedDate} • {selectedTime}
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative text-right">
+                            <span className="text-xl font-bold text-primary dark:text-white">${formatCOP(totalPrice)}</span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleConfirm}
+                        disabled={isBooking || loading || !selectedTime}
+                        className="w-full bg-primary dark:bg-white text-white dark:text-primary h-14 rounded-xl font-bold text-lg shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
+                    >
+                        <span>{isBooking ? "Confirmando..." : "Finalizar Reserva"}</span>
+                        <span className="material-symbols-outlined font-bold">check_circle</span>
+                    </button>
                 </div>
-                <button
-                    onClick={handleConfirm}
-                    disabled={isBooking || loading || !selectedTime}
-                    className="w-full bg-primary dark:bg-white text-white dark:text-primary h-14 rounded-xl font-bold text-lg shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
-                >
-                    <span>{isBooking ? "Confirmando..." : "Finalizar Reserva"}</span>
-                    <span className="material-symbols-outlined font-bold">check_circle</span>
-                </button>
             </div>
         </div>
     );

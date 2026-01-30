@@ -679,7 +679,7 @@ export default function BarberAdmin() {
 
                 {/* Bottom Navigation */}
                 <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-2 pt-2 px-4 pointer-events-none">
-                    <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl">
+                    <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl bg-white/60 backdrop-blur-sm">
                         <Link href="/admin/barber" className="flex flex-col items-center justify-center w-16 h-full gap-1 text-primary dark:text-white">
                             <span className="material-symbols-outlined text-[26px]">grid_view</span>
                             <span className="text-[10px] font-medium">Panel</span>

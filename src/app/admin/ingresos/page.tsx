@@ -65,7 +65,10 @@ export default function ControlIngresos() {
                 const selectedDateObj = new Date(selectedDate + "T00:00:00");
                 const selectedMonth = selectedDateObj.toISOString().slice(0, 7);
                 const startOfMonth = `${selectedMonth}-01`;
-                const endOfMonth = `${selectedMonth}-31`;
+                
+                // Calcular el último día real del mes
+                const lastDayOfMonth = new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1, 0).getDate();
+                const endOfMonth = `${selectedMonth}-${lastDayOfMonth.toString().padStart(2, '0')}`;
                 
                 const { data: monthData } = await supabase
                     .from("citas")

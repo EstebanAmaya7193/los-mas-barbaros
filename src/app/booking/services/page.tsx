@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Service {
     id: string;
@@ -16,6 +16,7 @@ interface Service {
 export default function ServiceSelection() {
     const [services, setServices] = useState<Service[]>([]);
     const [selectedServices, setSelectedServices] = useState<string[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<string>("Todos");
     const [loading, setLoading] = useState(true);
 
     const formatCOP = (value: number) => {
@@ -40,15 +41,47 @@ export default function ServiceSelection() {
         fetchServices();
     }, []);
 
+    // Filtrado dinámico con useMemo
+    const filteredServices = useMemo(() => {
+        if (selectedCategory === "Todos") {
+            return services;
+        } else {
+            return services.filter(service => 
+                service.nombre.toLowerCase().includes(selectedCategory.toLowerCase())
+            );
+        }
+    }, [selectedCategory, services]);
+
+    // Categorías dinámicas basadas en los servicios
+    const categories = useMemo(() => {
+        const uniqueCategories = ["Todos"];
+        const serviceCategories = services.map(service => {
+            // Extraer categoría del nombre (ej: "Corte Clásico" -> "Corte")
+            const words = service.nombre.split(' ');
+            return words[0]; // Primera palabra como categoría
+        });
+        
+        // Eliminar duplicados y ordenar
+        const filtered = [...new Set(serviceCategories)].filter(cat => 
+            cat && cat !== "Todos"
+        ).sort();
+        
+        return [...uniqueCategories, ...filtered];
+    }, [services]);
+
     const toggleService = (id: string) => {
         setSelectedServices((prev) =>
             prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
         );
     };
 
-    const totalPrice = services
+    const totalPrice = filteredServices
         .filter((s) => selectedServices.includes(s.id))
         .reduce((acc, curr) => acc + Number(curr.precio), 0);
+
+    const totalDuration = filteredServices
+        .filter((s) => selectedServices.includes(s.id))
+        .reduce((acc, curr) => acc + Number(curr.duracion_minutos), 0);
 
     return (
         <div className="relative mx-auto flex h-screen w-full max-w-md flex-col overflow-hidden bg-background-light liquid-bg">
@@ -57,7 +90,7 @@ export default function ServiceSelection() {
             <div className="pointer-events-none absolute -left-20 top-80 h-96 w-96 rounded-full bg-gray-50 opacity-80 blur-3xl"></div>
 
             {/* Header */}
-            <header className="z-20 flex items-center justify-between px-6 py-4 pt-12 backdrop-blur-sm">
+            <header className="z-20 flex items-center justify-between px-6 py-4 pt-12 backdrop-blur-sm bg-white/80 border-b border-gray-200/50">
                 <Link
                     href="/"
                     className="group flex size-10 items-center justify-center rounded-full border border-transparent bg-transparent transition-colors hover:bg-black/5 active:scale-95"
@@ -75,24 +108,30 @@ export default function ServiceSelection() {
             {/* Category Filters */}
             <div className="z-20 w-full shrink-0 px-6 pb-2">
                 <div className="no-scrollbar flex gap-3 overflow-x-auto py-2">
-                    {/* Active Chip */}
-                    <button className="flex h-9 shrink-0 items-center justify-center rounded-full bg-black px-5 shadow-lg shadow-black/10 transition-transform active:scale-95">
-                        <p className="text-xs font-semibold text-white">Todos</p>
-                    </button>
-                    {/* Inactive Chips */}
-                    {["Corte", "Barba", "Combos", "Facial"].map((cat) => (
+                    {categories.map((cat) => (
                         <button
                             key={cat}
-                            className="liquid-card flex h-9 shrink-0 items-center justify-center rounded-full px-5 transition-transform active:scale-95"
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 transition-transform active:scale-95 ${
+                                selectedCategory === cat
+                                    ? "bg-black shadow-lg shadow-black/10"
+                                    : "liquid-card"
+                            }`}
                         >
-                            <p className="text-xs font-medium text-primary/70">{cat}</p>
+                            <p className={`text-xs font-medium ${
+                                selectedCategory === cat
+                                    ? "text-white font-semibold"
+                                    : "text-primary/70"
+                            }`}>
+                                {cat}
+                            </p>
                         </button>
                     ))}
                 </div>
             </div>
 
             {/* Scrollable Service List */}
-            <main className="no-scrollbar z-10 flex-1 overflow-y-auto px-6 py-4 pb-32">
+            <main className="no-scrollbar z-10 flex-1 overflow-y-visible px-6 py-4 pb-24">
                 {loading ? (
                     <div className="flex flex-col gap-4">
                         {[1, 2, 3].map((i) => (
@@ -101,53 +140,54 @@ export default function ServiceSelection() {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-4">
-                        {services.map((service) => (
+                        {filteredServices.map((service) => (
                             (() => {
                                 const isSelected = selectedServices.includes(service.id);
 
                                 return (
-                            <label key={service.id} className="group relative cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="peer sr-only"
-                                    checked={isSelected}
-                                    onChange={() => toggleService(service.id)}
-                                />
-                                <div className={`liquid-card relative flex items-center gap-4 rounded-2xl p-4 transition-all duration-300 ring-1 ring-black/5 ${isSelected ? 'bg-white ring-2 ring-black/30 shadow-lg shadow-black/10' : ''}`}>
-                                    {/* Icon Container */}
-                                    <div className={`flex size-14 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-black/5 transition-all duration-300 ${isSelected ? 'bg-black ring-black/20' : 'bg-white'}`}>
-                                        <span className={`material-symbols-outlined text-[28px] font-light ${isSelected ? 'text-white' : 'text-black'}`}>
-                                            {service.icono || "content_cut"}
-                                        </span>
-                                    </div>
-                                    {/* Content */}
-                                    <div className="flex flex-1 flex-col justify-center gap-0.5">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-base font-bold text-primary">
-                                                {service.nombre}
-                                            </h3>
-                                            <span className="text-base font-bold text-primary">
-                                                ${formatCOP(service.precio)}
-                                            </span>
+                                    <label
+                                        key={service.id}
+                                        className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all active:scale-[0.98] ${
+                                            isSelected
+                                                ? "bg-black text-white shadow-lg shadow-black/10"
+                                                : "liquid-card"
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleService(service.id)}
+                                            className="sr-only"
+                                        />
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex flex-col gap-1">
+                                                    <p className={`text-sm font-bold ${
+                                                        isSelected ? "text-white" : "text-primary"
+                                                    }`}>
+                                                        {service.nombre}
+                                                    </p>
+                                                    <p className={`text-xs ${
+                                                        isSelected ? "text-white/70" : "text-gray-500"
+                                                    }`}>
+                                                        {service.descripcion}
+                                                    </p>
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className={`text-sm font-bold ${
+                                                        isSelected ? "text-white" : "text-primary"
+                                                    }`}>
+                                                        ${formatCOP(service.precio)}
+                                                    </span>
+                                                    <span className={`text-xs ${
+                                                        isSelected ? "text-white/70" : "text-gray-400"
+                                                    }`}>
+                                                        {service.duracion_minutos} min
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <p className="text-xs font-medium text-gray-500">
-                                            {service.descripcion}
-                                        </p>
-                                        <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-                                            <span className="material-symbols-outlined text-[14px]">
-                                                schedule
-                                            </span>
-                                            <span>{service.duracion_minutos} min</span>
-                                        </div>
-                                    </div>
-                                    {/* Check Indicator */}
-                                    <div className={`absolute right-4 bottom-4 flex size-5 items-center justify-center rounded-full border transition-colors ${isSelected ? 'border-black bg-black' : 'border-gray-300 bg-transparent'}`}>
-                                        <span className={`material-symbols-outlined text-[14px] text-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0'}`}>
-                                            check
-                                        </span>
-                                    </div>
-                                </div>
-                            </label>
+                                    </label>
                                 );
                             })()
                         ))}
@@ -156,27 +196,42 @@ export default function ServiceSelection() {
             </main>
 
             {/* Sticky Bottom Action */}
-            <div className="absolute bottom-0 z-30 w-full bg-gradient-to-t from-white via-white/90 to-transparent pb-8 pt-12 px-6">
-                <div className="flex items-center justify-between mb-4 px-1">
-                    <span className="text-sm font-medium text-gray-500">
-                        {selectedServices.length} servicio
-                        {selectedServices.length !== 1 ? "s" : ""} seleccionado
-                        {selectedServices.length !== 1 ? "s" : ""}
-                    </span>
-                    <span className="text-lg font-bold text-primary">
-                        ${formatCOP(totalPrice)}
-                    </span>
+            <div className="fixed bottom-0 w-full z-30">
+                {/* Content */}
+                <div className="relative pb-4 pt-4 px-6">
+                    <div className="relative flex items-center justify-between mb-6 px-1">
+                        {/* Blur Background - cubre exactamente este elemento */}
+                        <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl -mx-2 -my-1"></div>
+                        
+                        <div className="relative flex flex-col gap-1">
+                            <span className="text-sm font-medium text-gray-500">
+                                {selectedServices.length} servicio
+                                {selectedServices.length !== 1 ? "s" : ""} seleccionado
+                                {selectedServices.length !== 1 ? "s" : ""}
+                            </span>
+                            {selectedServices.length > 0 && (
+                                <span className="text-xs text-gray-400">
+                                    {totalDuration} min totales
+                                </span>
+                            )}
+                        </div>
+                        <div className="relative text-right">
+                            <span className="text-lg font-bold text-primary">
+                                ${formatCOP(totalPrice)}
+                            </span>
+                        </div>
+                    </div>
+                    <Link
+                        href={`/booking/details?services=${selectedServices.join(",")}`}
+                        className={`flex w-full items-center justify-center gap-2 rounded-xl bg-black py-4 text-white shadow-lg shadow-black/20 transition-transform active:scale-[0.98] ${selectedServices.length === 0 ? "opacity-50 pointer-events-none" : ""
+                            }`}
+                    >
+                        <span className="text-base font-semibold">Continuar</span>
+                        <span className="material-symbols-outlined text-[20px]">
+                            arrow_forward
+                        </span>
+                    </Link>
                 </div>
-                <Link
-                    href={`/booking/details?services=${selectedServices.join(",")}`}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl bg-black py-4 text-white shadow-lg shadow-black/20 transition-transform active:scale-[0.98] ${selectedServices.length === 0 ? "opacity-50 pointer-events-none" : ""
-                        }`}
-                >
-                    <span className="text-base font-semibold">Continuar</span>
-                    <span className="material-symbols-outlined text-[20px]">
-                        arrow_forward
-                    </span>
-                </Link>
             </div>
         </div>
     );

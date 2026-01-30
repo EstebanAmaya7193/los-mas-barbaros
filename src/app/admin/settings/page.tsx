@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+interface Barber {
+    id: string;
+    nombre: string;
+    email: string;
+    foto_url?: string;
+    telefono?: string;
+    especialidad?: string;
+}
+
 interface Schedule {
     id: string;
     dia_semana: number;
@@ -26,7 +35,7 @@ const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "
 
 export default function SettingsPage() {
     const router = useRouter();
-    const [barber, setBarber] = useState<any>(null);
+    const [barber, setBarber] = useState<Barber | null>(null);
     const [schedules, setSchedules] = useState<Schedule[]>([]);
     const [blocks, setBlocks] = useState<Block[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,6 +43,8 @@ export default function SettingsPage() {
 
     // Modal state
     const [showBlockModal, setShowBlockModal] = useState(false);
+    const [showConflictModal, setShowConflictModal] = useState(false);
+    const [conflictData, setConflictData] = useState<{ count: number; message: string } | null>(null);
     const [newBlock, setNewBlock] = useState({
         nombre: "",
         fecha: "",
@@ -113,9 +124,10 @@ export default function SettingsPage() {
 
             if (error) throw error;
             alert("¡Cambios guardados correctamente! ✨");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Error saving settings:", err);
-            alert("Error al guardar: " + err.message);
+            const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+            alert("Error al guardar: " + errorMessage);
         } finally {
             setSaving(false);
         }
@@ -125,7 +137,31 @@ export default function SettingsPage() {
         e.preventDefault();
         if (!barber) return;
         setSaving(true);
+        
         try {
+            // Validar si hay citas existentes en el rango a bloquear
+            if (newBlock.fecha) {
+                const { data: existingAppointments, error: checkError } = await supabase
+                    .from("citas")
+                    .select("id, hora_inicio, hora_fin")
+                    .eq("barbero_id", barber.id)
+                    .eq("fecha", newBlock.fecha)
+                    .in("estado", ["PROGRAMADA", "EN_ATENCION"])
+                    .or(`hora_inicio.lt.${newBlock.hora_fin}:00,hora_fin.gt.${newBlock.hora_inicio}:00`);
+
+                if (checkError) throw checkError;
+
+                if (existingAppointments && existingAppointments.length > 0) {
+                    setConflictData({
+                        count: existingAppointments.length,
+                        message: `Hay ${existingAppointments.length} cita(s) agendada(s) en este rango. Por favor, cancela o reprograma las citas primero.`
+                    });
+                    setShowConflictModal(true);
+                    return;
+                }
+            }
+
+            // Si no hay citas, proceder con el bloqueo
             const { data, error } = await supabase
                 .from("bloqueos_barberos")
                 .insert([{
@@ -142,8 +178,9 @@ export default function SettingsPage() {
             setBlocks(prev => [data, ...prev]);
             setShowBlockModal(false);
             setNewBlock({ nombre: "", fecha: "", hora_inicio: "13:00", hora_fin: "14:00" });
-        } catch (err: any) {
-            alert("Error: " + err.message);
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+            alert("Error: " + errorMessage);
         } finally {
             setSaving(false);
         }
@@ -387,6 +424,45 @@ export default function SettingsPage() {
                     </button>
                 </div>
             </nav>
+
+            {/* Conflict Modal */}
+            {showConflictModal && conflictData && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-6 animate-in fade-in duration-200">
+                    <div className="w-full max-w-sm rounded-[32px] p-8 bg-white shadow-2xl animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-6 mx-auto">
+                            <span className="material-symbols-outlined text-red-600 text-[32px]">event_busy</span>
+                        </div>
+                        
+                        <h3 className="text-xl font-bold text-center mb-4">Conflicto de Horario</h3>
+                        
+                        <div className="text-center mb-6">
+                            <div className="text-3xl font-bold text-red-600 mb-2">{conflictData.count}</div>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                {conflictData.message}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => setShowConflictModal(false)}
+                                className="w-full bg-black dark:bg-white dark:text-black text-white h-12 rounded-xl text-sm font-bold shadow-lg active:scale-95 transition-all"
+                            >
+                                Entendido
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    setShowConflictModal(false);
+                                    router.push('/admin/agenda');
+                                }}
+                                className="w-full border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 h-12 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Ver Agenda
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
