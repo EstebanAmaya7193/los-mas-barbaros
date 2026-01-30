@@ -545,8 +545,8 @@ export default function ControlIngresos() {
                                                         <span className="material-symbols-outlined text-gray-600 dark:text-gray-300 text-[20px]">person</span>
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-primary dark:text-white font-semibold text-base">{transaction.clientes?.nombre || "Cliente"}</span>
-                                                        <span className="text-gray-400 text-xs font-medium">{transaction.hora_inicio.substring(0, 5)} • {transaction.servicios?.nombre || "Servicio"}</span>
+                                                        <span className="text-primary dark:text-white font-semibold text-base">{transaction.clientes?.[0]?.nombre || "Cliente"}</span>
+                                                        <span className="text-gray-400 text-xs font-medium">{transaction.hora_inicio.substring(0, 5)} • {transaction.servicios?.[0]?.nombre || "Servicio"}</span>
                                                     </div>
                                                 </div>
                                                 <span className="text-primary dark:text-white font-bold text-lg">+{formatCOP(transaction.monto_total)}</span>
