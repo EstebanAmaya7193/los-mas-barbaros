@@ -13,10 +13,10 @@ interface Transaction {
     estado: string;
     clientes: {
         nombre: string;
-    } | null;
+    }[];
     servicios: {
         nombre: string;
-    } | null;
+    }[];
 }
 
 interface ServiceStats {
@@ -177,7 +177,7 @@ export default function ControlIngresos() {
                     .sort((a, b) => b.total_ingresos - a.total_ingresos)
                     .slice(0, 3);
 
-                if (todayData) setTransactions(todayData as unknown as Transaction[]);
+                if (todayData) setTransactions(todayData);
                 if (sortedServices) setServiceStats(sortedServices);
                 setWeeklyData(weeklyTotals);
                 setMonthlyTotals(monthWeeklyTotals);
