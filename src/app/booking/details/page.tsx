@@ -1,5 +1,6 @@
 "use client";
 
+import RealPushService from "@/lib/realPushService";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -337,6 +338,82 @@ function BookingDetailsContent() {
             ]).select().single();
 
             if (bookingError) throw bookingError;
+
+            // Enviar notificación push al barbero
+            try {
+                // Obtener información del barbero para la notificación
+                const { data: barberInfo } = await supabase
+                    .from("barberos")
+                    .select("nombre")
+                    .eq("id", selectedBarber)
+                    .single();
+
+                // Obtener información del cliente y servicio
+                const { data: clientInfo } = await supabase
+                    .from("clientes")
+                    .select("nombre")
+                    .eq("id", clientId)
+                    .single();
+
+                const { data: serviceInfo } = await supabase
+                    .from("servicios")
+                    .select("nombre")
+                    .eq("id", serviceIds[0])
+                    .single();
+
+                // Preparar payload para notificación push
+                const notificationPayload = {
+                    title: '📅 Nueva Cita Agendada',
+                    body: `${clientInfo?.nombre || 'Cliente'} - ${serviceInfo?.nombre || 'Servicio'} - ${timeWithSec.substring(0, 5)}`,
+                    icon: '/assets/logo.jpg',
+                    tag: 'new-appointment',
+                    data: {
+                        type: 'new_appointment',
+                        appointmentId: bookingData.id,
+                        barberId: selectedBarber,
+                        clientId: clientId,
+                        serviceId: serviceIds[0],
+                        timestamp: new Date().toISOString()
+                    },
+                    requireInteraction: true,
+                    actions: [
+                        {
+                            action: 'open',
+                            title: 'Ver Panel'
+                        },
+                        {
+                            action: 'dismiss',
+                            title: 'Descartar'
+                        }
+                    ]
+                };
+
+                // Enviar notificación push a todos los tokens del barbero
+                const { data: tokens } = await supabase
+                    .from('barberos_push_tokens')
+                    .select('push_token')
+                    .eq('barbero_id', selectedBarber)
+                    .eq('is_active', true);
+
+                if (tokens && tokens.length > 0) {
+                    console.log(`📱 Enviando notificación push real a ${tokens.length} dispositivos...`);
+                    
+                    // Usar el servicio de envío push real
+                    const pushService = RealPushService.getInstance();
+                    const successCount = await pushService.sendPushNotificationToMultiple(
+                        tokens.map(t => t.push_token),
+                        notificationPayload
+                    );
+                    
+                    console.log(`✅ Notificación push real enviada a ${successCount} dispositivos`);
+                } else {
+                    console.log('❌ No hay tokens push registrados para este barbero');
+                }
+
+                console.log('✅ Notificación enviada al barbero:', barberInfo?.nombre);
+            } catch (notificationError) {
+                console.log('📝 Error en notificación push (continuando normalmente):', notificationError);
+            }
 
             router.push(`/booking/confirmation?id=${bookingData.id}`);
         } catch (error: unknown) {

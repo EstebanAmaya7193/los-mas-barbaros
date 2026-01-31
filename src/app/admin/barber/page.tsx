@@ -1,5 +1,6 @@
 "use client";
 
+import { PushNotificationPrompt } from "@/hooks/usePushNotifications";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -40,6 +41,38 @@ export default function BarberAdmin() {
     const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+    const [notificationPromptShown, setNotificationPromptShown] = useState(false);
+
+    // Mostrar prompt de notificaciones después de que todo esté cargado
+    useEffect(() => {
+        if (!loading && barber && !notificationPromptShown) {
+            const timer = setTimeout(() => {
+                setShowNotificationPrompt(true);
+            }, 1000); // Delay para asegurar que todo esté renderizado
+            return () => clearTimeout(timer);
+        }
+    }, [loading, barber, notificationPromptShown]);
+
+    // Botón de prueba de notificaciones
+    const testNotification = async () => {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            
+            // Enviar mensaje al service worker para mostrar notificación
+            registration.active?.postMessage({
+                type: 'SHOW_NOTIFICATION',
+                payload: {
+                    title: '🧪 Notificación de Prueba',
+                    body: 'Esta es una prueba del sistema push',
+                    icon: '/assets/logo.jpg',
+                    tag: 'test-notification'
+                }
+            });
+            
+            console.log('🧪 Mensaje de prueba enviado al service worker');
+        }
+    };
 
     // Walk-in form state
     const [showWalkInModal, setShowWalkInModal] = useState(false);
@@ -300,6 +333,27 @@ export default function BarberAdmin() {
                         <span className="material-symbols-outlined text-[20px]">logout</span>
                     </button>
                 </header>
+
+                {/* Push Notification Prompt */}
+                {showNotificationPrompt && barber && (
+                    <PushNotificationPrompt 
+                        barberId={barber.id}
+                        onClose={() => {
+                            setNotificationPromptShown(true);
+                            setShowNotificationPrompt(false);
+                        }}
+                    />
+                )}
+
+                {/* Botón de prueba de notificaciones */}
+                {barber && (
+                    <button
+                        onClick={testNotification}
+                        className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-blue-700 transition-colors z-50"
+                    >
+                        🧪 Probar Notificación
+                    </button>
+                )}
 
                 <main className="flex flex-col gap-6 px-4">
                     {/* Walk-in Button (Prominent) */}
@@ -635,7 +689,7 @@ export default function BarberAdmin() {
                                         </button>
                                     </>
                                 )}
-                                
+
                                 {selectedAppointment.estado === 'EN_ATENCION' && (
                                     <button
                                         onClick={() => {
@@ -665,7 +719,6 @@ export default function BarberAdmin() {
                                         Cancelar Cita
                                     </button>
                                 )}
-                                
                                 <button
                                     onClick={() => setShowOptionsModal(false)}
                                     className="w-full h-12 bg-neutral-100 dark:bg-neutral-800 rounded-xl font-bold"
