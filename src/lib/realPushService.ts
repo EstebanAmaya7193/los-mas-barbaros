@@ -37,6 +37,11 @@ class RealPushService {
         privateKey: 'UuIrRsCVHio8RvYJ6aPznZ9yAayD2F97bO70LmreSQY'
     };
 
+    constructor() {
+        // Nota: web-push es para Node.js, en browser necesitamos otro enfoque
+        // Por ahora usamos el service worker como intermediario
+    }
+
     static getInstance(): RealPushService {
         if (!RealPushService.instance) {
             RealPushService.instance = new RealPushService();
@@ -65,28 +70,60 @@ class RealPushService {
                 return false;
             }
             
-            // PARA DEBUG: Enviar al service worker local para pruebas
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(registration => {
-                    if (registration.active) {
-                        registration.active.postMessage({
-                            type: 'SEND_PUSH_NOTIFICATION',
-                            subscription: subscription,
-                            payload: payload
-                        });
-                        console.log('📡 Mensaje enviado al Service Worker local para debug');
-                    }
-                }).catch(error => {
-                    console.log('⚠️ Error con Service Worker local:', error);
+            // Intentar envío directo a FCM usando fetch
+            try {
+                const response = await fetch(subscription.endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'TTL': '60'
+                    },
+                    body: JSON.stringify(payload)
                 });
+                
+                console.log('📡 Respuesta FCM:', response.status, response.statusText);
+                
+                if (response.ok) {
+                    console.log('✅ Notificación push enviada exitosamente a FCM');
+                    return true;
+                } else {
+                    console.error('❌ Error en respuesta FCM:', response.status, response.statusText);
+                    
+                    // Fallback: enviar al service worker local para debug
+                    return this.sendToServiceWorker(subscription, payload);
+                }
+            } catch (fetchError) {
+                console.error('❌ Error en fetch a FCM:', fetchError);
+                
+                // Fallback: enviar al service worker local para debug
+                return this.sendToServiceWorker(subscription, payload);
             }
-            
-            // TODO: Implementar envío real con web-push library
-            // Por ahora, simular éxito
-            console.log('✅ Notificación push enviada (simulado)');
-            return true;
         } catch (error) {
             console.error('❌ Error general:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Enviar al service worker local como fallback para debug
+     */
+    private async sendToServiceWorker(subscription: PushSubscription, payload: PushPayload): Promise<boolean> {
+        try {
+            if ('serviceWorker' in navigator) {
+                const registration = await navigator.serviceWorker.ready;
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: 'SEND_PUSH_NOTIFICATION',
+                        subscription: subscription,
+                        payload: payload
+                    });
+                    console.log('📡 Mensaje enviado al Service Worker local para debug');
+                    return true;
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error('❌ Error enviando a Service Worker:', error);
             return false;
         }
     }
