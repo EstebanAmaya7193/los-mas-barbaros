@@ -30,12 +30,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   const subscribeToPush = async () => {
     const pushManager = PushNotificationManager.getInstance();
-    const success = await pushManager.subscribeToPush();
-    if (success) {
-      setIsEnabled(true);
-    } else {
-      setIsEnabled(false);
-    }
+    // Necesitamos el barberId para suscribirse
+    // Esto debería ser llamado desde el componente con el ID del barbero
+    console.log('⚠️ subscribeToPush requiere barberId');
+    return false;
   };
 
   const requestPermission = async (barberId: string): Promise<boolean> => {
@@ -67,8 +65,15 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           
           if (permission === 'granted') {
             console.log('✅ Permisos concedidos, suscribiendo...');
-            await subscribeToPush();
-            return true;
+            // Usar el método correcto del PushNotificationManager
+            const pushManager = PushNotificationManager.getInstance();
+            const success = await pushManager.requestPermissionAndSubscribe(barberId);
+            if (success) {
+              setIsEnabled(true);
+            } else {
+              setIsEnabled(false);
+            }
+            return success;
           } else if (permission === 'denied') {
             console.log('❌ Permisos denegados');
             return false;
