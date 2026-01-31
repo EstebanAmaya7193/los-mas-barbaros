@@ -303,6 +303,9 @@ export default function BarberAdmin() {
 
             if (bookingError) throw bookingError;
 
+            // NOTA: Los walk-ins creados por admin no disparan notificaciones
+            // porque el admin ya está al tanto de la cita
+
             setShowWalkInModal(false);
             setShowConflictModal(false);
             setWalkInClientName("");
