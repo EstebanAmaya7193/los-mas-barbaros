@@ -1,7 +1,9 @@
 /**
  * Servicio de Envío Push Real para Producción
- * Usa Service Worker como intermediario para FCM
+ * Usa Backend API como intermediario para FCM
  */
+
+import { sendPushViaBackend } from './backendPushService';
 
 interface VAPIDKeys {
     publicKey: string;
@@ -30,7 +32,7 @@ interface PushPayload {
     }>;
 }
 
-class RealPushService {
+export class RealPushService {
     private static instance: RealPushService;
     private vapidKeys: VAPIDKeys = {
         publicKey: 'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ',
@@ -50,13 +52,13 @@ class RealPushService {
     }
 
     /**
-     * Enviar notificación push usando Service Worker
+     * Enviar notificación push usando Backend API
      */
     async sendPushNotification(pushToken: string, payload: PushPayload): Promise<boolean> {
         try {
             console.log('📱 Enviando notificación push al barbero:', pushToken.substring(0, 50) + '...');
             
-            // Parsear el token de suscripción
+            // Parsear el token de suscripción para validación
             let subscription;
             try {
                 subscription = JSON.parse(pushToken);
@@ -70,34 +72,19 @@ class RealPushService {
                 return false;
             }
             
-            // Intentar envío directo a FCM usando fetch
-            try {
-                const response = await fetch(subscription.endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'TTL': '60'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                console.log('📡 Respuesta FCM:', response.status, response.statusText);
-                
-                if (response.ok) {
-                    console.log('✅ Notificación push enviada exitosamente a FCM');
-                    return true;
-                } else {
-                    console.error('❌ Error en respuesta FCM:', response.status, response.statusText);
-                    
-                    // Fallback: enviar al service worker local para debug
-                    return this.sendToServiceWorker(subscription, payload);
-                }
-            } catch (fetchError) {
-                console.error('❌ Error en fetch a FCM:', fetchError);
+            // Enviar via backend API
+            const success = await sendPushViaBackend(pushToken, payload);
+            
+            if (success) {
+                console.log('✅ Notificación push enviada exitosamente via backend');
+                return true;
+            } else {
+                console.error('❌ Error en backend push');
                 
                 // Fallback: enviar al service worker local para debug
                 return this.sendToServiceWorker(subscription, payload);
             }
+            
         } catch (error) {
             console.error('❌ Error general:', error);
             return false;
