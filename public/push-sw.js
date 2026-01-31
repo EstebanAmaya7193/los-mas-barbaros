@@ -73,13 +73,15 @@ self.addEventListener('message', (event) => {
       self.registration.showNotification(payload.title, options)
     );
   } else if (event.data.type === 'SEND_PUSH_NOTIFICATION') {
-    // Enviar notificación push real
+    // Enviar notificación push real (DEBUG: mostrar localmente)
     const { subscription, payload } = event.data;
-    console.log('📡 Enviando push notification a:', subscription.endpoint.substring(0, 50) + '...');
+    console.log('📡 DEBUG: Recibido SEND_PUSH_NOTIFICATION');
+    console.log('📦 DEBUG: Subscription:', subscription);
+    console.log('📦 DEBUG: Payload:', payload);
     
-    // Mostrar notificación local como fallback
+    // DEBUG: Mostrar notificación local para saber que se recibió el mensaje
     const options = {
-      body: payload.body,
+      body: payload.body + ' (DEBUG: Recibido en SW)',
       icon: payload.icon || '/icons/icon-192x192.png',
       badge: payload.badge || '/icons/icon-72x72.png',
       data: payload.data,
@@ -89,21 +91,40 @@ self.addEventListener('message', (event) => {
     };
 
     event.waitUntil(
-      self.registration.showNotification(payload.title, options)
+      self.registration.showNotification('🔔 ' + payload.title, options)
     );
   }
 });
 
 // Manejo de eventos push
 self.addEventListener('push', (event) => {
-  console.log('📱 Evento push recibido');
+  console.log('📱 Evento push recibido en Service Worker');
+  console.log('📦 Evento data:', event.data);
+  console.log('📦 Evento data text:', event.data ? event.data.text() : 'No data');
 
-  const payload = event.data.json();
+  let payload;
+  try {
+    payload = event.data ? event.data.json() : null;
+    console.log('📦 Payload parseado:', payload);
+  } catch (error) {
+    console.error('❌ Error parseando payload:', error);
+    payload = null;
+  }
   
   if (!payload) {
-    console.log('❌ No hay payload en el evento push');
+    console.log('❌ No hay payload válido en el evento push');
+    // Mostrar notificación genérica para debug
+    event.waitUntil(
+      self.registration.showNotification('🔔 Notificación de Prueba', {
+        body: 'Evento push recibido pero sin payload',
+        icon: '/icons/icon-192x192.png',
+        tag: 'debug-push'
+      })
+    );
     return;
   }
+
+  console.log('✅ Mostrando notificación:', payload.title);
 
   const options = {
     body: payload.body,

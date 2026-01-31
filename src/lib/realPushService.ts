@@ -51,30 +51,43 @@ class RealPushService {
         try {
             console.log('📱 Enviando notificación push al barbero:', pushToken.substring(0, 50) + '...');
             
-            // NO mostrar notificación local - esto es para el cliente
-            // La notificación debe llegar al dispositivo del barbero
+            // Parsear el token de suscripción
+            let subscription;
+            try {
+                subscription = JSON.parse(pushToken);
+                console.log('📦 Suscripción parseada:', {
+                    endpoint: subscription.endpoint,
+                    hasKeys: !!subscription.keys,
+                    keysType: typeof subscription.keys
+                });
+            } catch (parseError) {
+                console.error('❌ Error parseando token:', parseError);
+                return false;
+            }
             
-            // Intentar enviar al service worker para que maneje el envío push real
+            // PARA DEBUG: Enviar al service worker local para pruebas
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(registration => {
                     if (registration.active) {
                         registration.active.postMessage({
                             type: 'SEND_PUSH_NOTIFICATION',
-                            subscription: pushToken,
+                            subscription: subscription,
                             payload: payload
                         });
-                        console.log('✅ Mensaje push enviado al Service Worker para el barbero');
+                        console.log('📡 Mensaje enviado al Service Worker local para debug');
                     }
                 }).catch(error => {
-                    console.log('⚠️ Error con Service Worker (continuando):', error);
+                    console.log('⚠️ Error con Service Worker local:', error);
                 });
             }
             
-            console.log('✅ Notificación push enviada al barbero');
+            // TODO: Implementar envío real con web-push library
+            // Por ahora, simular éxito
+            console.log('✅ Notificación push enviada (simulado)');
             return true;
         } catch (error) {
             console.error('❌ Error general:', error);
-            return true;
+            return false;
         }
     }
 
