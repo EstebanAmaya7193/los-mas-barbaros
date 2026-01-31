@@ -1,6 +1,6 @@
 "use client";
 
-import { PushNotificationPrompt } from "@/hooks/usePushNotifications";
+import PushPermissionPrompt from "@/components/PushPermissionPrompt";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -53,6 +53,34 @@ export default function BarberAdmin() {
             return () => clearTimeout(timer);
         }
     }, [loading, barber, notificationPromptShown]);
+
+    // Manejar aceptación del prompt
+    const handleNotificationAccept = async () => {
+        console.log('✅ Usuario aceptó notificaciones');
+        setNotificationPromptShown(true);
+        setShowNotificationPrompt(false);
+        
+        // Aquí podrías activar la suscripción push
+        try {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: 'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ'
+                });
+                console.log('✅ Suscripción push exitosa:', subscription);
+            }
+        } catch (error) {
+            console.error('❌ Error en suscripción push:', error);
+        }
+    };
+
+    // Manejar rechazo del prompt
+    const handleNotificationDismiss = () => {
+        console.log('❌ Usuario rechazó notificaciones');
+        setNotificationPromptShown(true);
+        setShowNotificationPrompt(false);
+    };
 
     // Botón de prueba de notificaciones
     const testNotification = async () => {
@@ -334,14 +362,11 @@ export default function BarberAdmin() {
                     </button>
                 </header>
 
-                {/* Push Notification Prompt */}
+                {/* Push Permission Prompt */}
                 {showNotificationPrompt && barber && (
-                    <PushNotificationPrompt 
-                        barberId={barber.id}
-                        onClose={() => {
-                            setNotificationPromptShown(true);
-                            setShowNotificationPrompt(false);
-                        }}
+                    <PushPermissionPrompt 
+                        onAccept={handleNotificationAccept}
+                        onDismiss={handleNotificationDismiss}
                     />
                 )}
 

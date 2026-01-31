@@ -28,6 +28,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   }, []);
 
+  const subscribeToPush = async () => {
+    const pushManager = PushNotificationManager.getInstance();
+    const success = await pushManager.subscribeToPush();
+    if (success) {
+      setIsEnabled(true);
+    } else {
+      setIsEnabled(false);
+    }
+  };
+
   const requestPermission = async (barberId: string): Promise<boolean> => {
     if (!isSupported || !barberId) {
       return false;
@@ -35,17 +45,43 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
     setIsLoading(true);
     try {
-      const pushManager = PushNotificationManager.getInstance();
-      const success = await pushManager.requestPermissionAndSubscribe(barberId);
-      
-      // Actualizar estado inmediatamente después de la suscripción
-      if (success) {
-        setIsEnabled(true);
-        return true;
-      } else {
-        setIsEnabled(false);
-        return false;
-      }
+      const requestPermission = async () => {
+        try {
+          console.log('🔔 Solicitando permiso de notificaciones...');
+          
+          // Verificar si ya tenemos permiso
+          if (Notification.permission === 'granted') {
+            console.log('✅ Permisos ya concedidos');
+            await subscribeToPush();
+            return true;
+          }
+          
+          if (Notification.permission === 'denied') {
+            console.log('❌ Permisos denegados previamente');
+            return false;
+          }
+          
+          // Solicitar permiso con mejor manejo
+          const permission = await Notification.requestPermission();
+          console.log('📋 Permiso obtenido:', permission);
+          
+          if (permission === 'granted') {
+            console.log('✅ Permisos concedidos, suscribiendo...');
+            await subscribeToPush();
+            return true;
+          } else if (permission === 'denied') {
+            console.log('❌ Permisos denegados');
+            return false;
+          } else {
+            console.log('⏳ Permisos no decididos');
+            return false;
+          }
+        } catch (error) {
+          console.error('❌ Error solicitando permisos:', error);
+          return false;
+        }
+      };
+      return await requestPermission();
     } catch (error) {
       console.error('Error requesting push permission:', error);
       setIsEnabled(false);
