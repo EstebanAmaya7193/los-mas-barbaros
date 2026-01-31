@@ -47,10 +47,23 @@ export default function BarberAdmin() {
     // Mostrar prompt de notificaciones después de que todo esté cargado
     useEffect(() => {
         if (!loading && barber && !notificationPromptShown) {
-            const timer = setTimeout(() => {
-                setShowNotificationPrompt(true);
-            }, 1000); // Delay para asegurar que todo esté renderizado
-            return () => clearTimeout(timer);
+            // Verificar si ya se mostró el prompt anteriormente
+            const promptShown = localStorage.getItem('notification_prompt_shown');
+            const permissionGranted = Notification.permission === 'granted';
+            
+            // Solo mostrar el prompt si:
+            // 1. No se ha mostrado antes Y
+            // 2. No se ha concedido permiso
+            if (!promptShown && !permissionGranted) {
+                const timer = setTimeout(() => {
+                    setShowNotificationPrompt(true);
+                }, 1000); // Delay para asegurar que todo esté renderizado
+                return () => clearTimeout(timer);
+            } else if (permissionGranted) {
+                // Si ya tiene permiso, marcar como mostrado para no volver a preguntar
+                setNotificationPromptShown(true);
+                localStorage.setItem('notification_prompt_shown', 'true');
+            }
         }
     }, [loading, barber, notificationPromptShown]);
 
@@ -59,6 +72,9 @@ export default function BarberAdmin() {
         console.log('✅ Usuario aceptó notificaciones');
         setNotificationPromptShown(true);
         setShowNotificationPrompt(false);
+        
+        // Guardar que el prompt ya fue mostrado y aceptado
+        localStorage.setItem('notification_prompt_shown', 'true');
         
         // Aquí podrías activar la suscripción push
         try {
@@ -80,6 +96,9 @@ export default function BarberAdmin() {
         console.log('❌ Usuario rechazó notificaciones');
         setNotificationPromptShown(true);
         setShowNotificationPrompt(false);
+        
+        // Guardar que el prompt ya fue mostrado (aunque fue rechazado)
+        localStorage.setItem('notification_prompt_shown', 'true');
     };
 
     // Botón de prueba de notificaciones

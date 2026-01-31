@@ -5,17 +5,19 @@
 
 import { supabase } from './supabase';
 
-interface PushSubscription {
+// Interfaz personalizada para PushSubscription que coincide con la realidad
+interface CustomPushSubscription {
     endpoint: string;
     keys: {
         p256dh: string;
         auth: string;
     };
+    getKey?(method: string): ArrayBuffer | null;
 }
 
-class PushNotificationManager {
+export class PushNotificationManager {
     private static instance: PushNotificationManager;
-    private subscription: PushSubscription | null = null;
+    private subscription: CustomPushSubscription | null = null;
     private isSupported: boolean = false;
 
     private constructor() {
@@ -64,15 +66,15 @@ class PushNotificationManager {
             console.log('🔑 Suscribiendo a push notifications...');
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: applicationServerKey
+                applicationServerKey: applicationServerKey as BufferSource
             });
             console.log('✅ Suscripción exitosa:', subscription);
 
             // 3. Guardar token en la base de datos
             console.log('💾 Guardando token en base de datos para barbero:', barberId);
-            await this.saveTokenToDatabase(barberId, subscription);
+            await this.saveTokenToDatabase(barberId, subscription as unknown as CustomPushSubscription);
             
-            this.subscription = subscription;
+            this.subscription = subscription as unknown as CustomPushSubscription;
             console.log('🎉 Sistema push completado exitosamente');
             return true;
         } catch (error) {
@@ -84,12 +86,13 @@ class PushNotificationManager {
     /**
      * Guardar token de push en la base de datos
      */
-    async saveTokenToDatabase(barberId: string, subscription: any): Promise<void> {
+    async saveTokenToDatabase(barberId: string, subscription: CustomPushSubscription): Promise<void> {
         try {
             console.log('📝 Preparando datos para guardar:', {
                 barber_id: barberId,
                 subscription_endpoint: subscription.endpoint,
-                subscription_keys: subscription.keys
+                p256dh_key: subscription.keys.p256dh.substring(0, 20) + '...', // Solo mostrar parte para debug
+                auth_key: subscription.keys.auth.substring(0, 10) + '...' // Solo mostrar parte para debug
             });
 
             // Primero intentar eliminar tokens existentes para este barbero
@@ -102,6 +105,8 @@ class PushNotificationManager {
             const { data, error } = await supabase.from('barberos_push_tokens').insert({
                 barbero_id: barberId,
                 push_token: JSON.stringify(subscription),
+                p256dh_key: subscription.keys.p256dh,
+                auth_key: subscription.keys.auth,
                 user_agent: navigator.userAgent,
                 is_active: true
             });

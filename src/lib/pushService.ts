@@ -9,7 +9,7 @@ interface PushPayload {
     icon?: string;
     badge?: string;
     tag?: string;
-    data?: any;
+    data?: unknown;
     requireInteraction?: boolean;
     actions?: Array<{
         action: string;
@@ -95,12 +95,7 @@ class PushService {
             if ('serviceWorker' in navigator) {
                 const registration = await navigator.serviceWorker.ready;
                 
-                // Simular un evento push para pruebas
-                const pushEvent = new PushEvent('push', {
-                    data: new Response(webPushPayload)
-                });
-
-                // Disparar el evento manualmente para pruebas
+                // Enviar mensaje al service worker para simular push
                 setTimeout(() => {
                     registration.active?.postMessage({
                         type: 'PUSH_EVENT',

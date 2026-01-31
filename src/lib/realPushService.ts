@@ -3,6 +3,11 @@
  * Usa Service Worker como intermediario para FCM
  */
 
+interface VAPIDKeys {
+    publicKey: string;
+    privateKey: string;
+}
+
 interface PushSubscription {
     endpoint: string;
     keys: {
@@ -17,7 +22,7 @@ interface PushPayload {
     icon?: string;
     badge?: string;
     tag?: string;
-    data?: any;
+    data?: unknown;
     requireInteraction?: boolean;
     actions?: Array<{
         action: string;
@@ -27,8 +32,10 @@ interface PushPayload {
 
 class RealPushService {
     private static instance: RealPushService;
-    private vapidPublicKey = 'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ';
-    private vapidPrivateKey = 'UuIrRsCVHio8RvYJ6aPznZ9yAayD2F97bO70LmreSQY';
+    private vapidKeys: VAPIDKeys = {
+        publicKey: 'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ',
+        privateKey: 'UuIrRsCVHio8RvYJ6aPznZ9yAayD2F97bO70LmreSQY'
+    };
 
     static getInstance(): RealPushService {
         if (!RealPushService.instance) {
