@@ -395,38 +395,34 @@ function BookingDetailsContent() {
                     .eq('barbero_id', selectedBarber)
                     .eq('is_active', true);
 
+                // Enviar notificación push de forma asíncrona sin bloquear
                 if (tokens && tokens.length > 0) {
-                    console.log(`Enviando notificación push a ${tokens.length} dispositivos...`);
+                    console.log(`Programando envío de notificación push a ${tokens.length} dispositivos...`);
                     
-                    try {
-                        // Usar el servicio de envío push real
-                        const pushService = RealPushService.getInstance();
-                        const successCount = await pushService.sendPushNotificationToMultiple(
-                            tokens.map(t => t.push_token),
-                            notificationPayload
-                        );
-                        
-                        console.log(`Notificación push enviada a ${successCount} dispositivos`);
-                        
-                        // Si al menos una notificación se envió, considerar éxito
-                        if (successCount > 0) {
-                            console.log('Notificaciones push enviadas exitosamente');
-                        } else {
-                            console.log('No se pudieron enviar notificaciones push');
+                    // No esperar el resultado - enviar en background
+                    setTimeout(async () => {
+                        try {
+                            const pushService = RealPushService.getInstance();
+                            const successCount = await pushService.sendPushNotificationToMultiple(
+                                tokens.map(t => t.push_token),
+                                notificationPayload
+                            );
+                            
+                            console.log(`Notificaciones push enviadas en background: ${successCount}/${tokens.length}`);
+                        } catch (pushError) {
+                            console.error('Error en sistema de notificaciones push (background):', pushError);
                         }
-                    } catch (pushError) {
-                        console.error('Error en el sistema de notificaciones push:', pushError);
-                        // No bloquear el flujo por errores de notificación
-                    }
+                    }, 100); // Pequeño delay para asegurar que la reserva se complete primero
                 } else {
                     console.log('No hay tokens push registrados para este barbero');
                 }
 
-                console.log('Notificación enviada al barbero:', barberInfo?.nombre);
+                console.log('Reserva completada, redirigiendo a confirmación...');
             } catch (notificationError) {
                 console.log('Error en notificación push (continuando normalmente):', notificationError);
             }
 
+            // Redirigir inmediatamente sin esperar notificaciones
             router.push(`/booking/confirmation?id=${bookingData.id}`);
         } catch (error: unknown) {
             console.error("Booking error:", error);
