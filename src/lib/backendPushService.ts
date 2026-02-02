@@ -41,13 +41,25 @@ export async function sendPushViaBackend(
         });
         
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+            let errorData = {};
+            try {
+                errorData = await response.json();
+            } catch (jsonError) {
+                console.error('No se pudo parsear el error JSON:', jsonError);
+                errorData = { error: 'No se pudo parsear la respuesta del servidor' };
+            }
+            
             console.error(`Backend error: ${response.status} ${response.statusText}`, errorData);
+            
+            // Para errores 500, asumir que es un problema temporal y no marcar tokens
+            if (response.status === 500) {
+                console.log('Error 500 del backend - posible problema temporal con FCM');
+                return false;
+            }
             
             // Si es un token inválido o expirado, marcarlo para limpieza
             if (response.status === 400 || response.status === 410) {
                 console.log('Token inválido detectado, debería limpiarse:', pushToken.substring(0, 50) + '...');
-                // Aquí podrías llamar a una función para limpiar el token
                 await markTokenAsInvalid(pushToken);
             }
             

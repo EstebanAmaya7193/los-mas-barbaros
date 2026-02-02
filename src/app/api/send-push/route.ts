@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         // Enviar notificación usando web-push
         try {
             console.log('API: Enviando a web-push...');
+            console.log('API: Endpoint:', subscription.endpoint);
             
             const result = await webPush.sendNotification(
                 subscription,
@@ -73,15 +74,19 @@ export async function POST(request: NextRequest) {
             
         } catch (pushError) {
             console.error('API: Error en web-push:', pushError);
+            console.error('API: Tipo de error:', typeof pushError);
+            console.error('API: Mensaje de error:', pushError instanceof Error ? pushError.message : 'Unknown error');
+            console.error('API: Stack trace:', pushError instanceof Error ? pushError.stack : 'No stack available');
             
             // Si el suscriptor ya no es válido, podría ser un error 410 Gone
             if (pushError instanceof Error) {
-                if (pushError.message.includes('410') || pushError.message.includes('Gone')) {
+                const errorMessage = pushError.message;
+                
+                if (errorMessage.includes('410') || errorMessage.includes('Gone')) {
                     console.log('Suscripción expirada, limpiando token de la base de datos');
                     
                     // Intentar eliminar el token inválido de la base de datos
                     try {
-                        // Esto requeriría pasar el barbero_id, por ahora solo logueamos
                         console.log('Token inválido detectado, debería eliminarse:', subscription.endpoint);
                     } catch (cleanupError) {
                         console.error('Error limpiando token:', cleanupError);
@@ -91,34 +96,46 @@ export async function POST(request: NextRequest) {
                         success: false,
                         error: 'Suscripción expirada',
                         code: 'SUBSCRIPTION_EXPIRED',
-                        details: pushError.message
+                        details: errorMessage
                     }, { status: 410 });
                 }
                 
                 // Error de rate limiting
-                if (pushError.message.includes('429') || pushError.message.includes('rate')) {
+                if (errorMessage.includes('429') || errorMessage.includes('rate')) {
                     console.log('Rate limit excedido');
                     return NextResponse.json({
                         success: false,
                         error: 'Demasiadas solicitudes',
                         code: 'RATE_LIMIT_EXCEEDED',
-                        details: pushError.message
+                        details: errorMessage
                     }, { status: 429 });
                 }
                 
                 // Error de token inválido (400/404)
-                if (pushError.message.includes('400') || pushError.message.includes('404') || 
-                    pushError.message.includes('Invalid') || pushError.message.includes('Not Found')) {
+                if (errorMessage.includes('400') || errorMessage.includes('404') || 
+                    errorMessage.includes('Invalid') || errorMessage.includes('Not Found')) {
                     console.log('Token inválido detectado:', subscription.endpoint);
                     return NextResponse.json({
                         success: false,
                         error: 'Token inválido',
                         code: 'INVALID_TOKEN',
-                        details: pushError.message
+                        details: errorMessage
                     }, { status: 400 });
+                }
+                
+                // Error de respuesta inesperada
+                if (errorMessage.includes('Received unexpected response code')) {
+                    console.log('Error de respuesta inesperada de FCM');
+                    return NextResponse.json({
+                        success: false,
+                        error: 'Error en el servicio de notificaciones',
+                        code: 'FCM_ERROR',
+                        details: errorMessage
+                    }, { status: 500 });
                 }
             }
             
+            // Error genérico
             return NextResponse.json({
                 success: false,
                 error: 'Error enviando notificación',

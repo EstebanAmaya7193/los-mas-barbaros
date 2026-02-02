@@ -137,9 +137,13 @@ function ConfirmationContent() {
                     <div className="relative flex items-center justify-center size-24 mb-6">
                         <div className="absolute inset-0 rounded-full border border-black/5 dark:border-white/10 animate-ping opacity-20"></div>
                         <div className="absolute inset-0 rounded-full bg-black/5 dark:bg-white/5 scale-110 blur-xl"></div>
-                        <span className="material-symbols-outlined text-[80px] text-primary dark:text-white font-light drop-shadow-sm">
-                            check_circle
-                        </span>
+                        <svg 
+                            className="w-full h-full text-primary dark:text-white drop-shadow-sm" 
+                            viewBox="0 0 24 24" 
+                            fill="currentColor"
+                        >
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
                     </div>
                     <h1 className="text-[32px] font-bold tracking-tight text-primary dark:text-white mb-2 leading-tight">
                         ¡Listo, {firstName}!
