@@ -69,31 +69,121 @@ export default function BarberAdmin() {
 
     // Manejar aceptación del prompt
     const handleNotificationAccept = async () => {
-        console.log('✅ Usuario aceptó notificaciones');
+        console.log('Usuario aceptó notificaciones');
         setNotificationPromptShown(true);
         setShowNotificationPrompt(false);
         
         // Guardar que el prompt ya fue mostrado y aceptado
         localStorage.setItem('notification_prompt_shown', 'true');
         
-        // Aquí podrías activar la suscripción push
+        // Activar la suscripción push y guardar en base de datos
         try {
-            if ('serviceWorker' in navigator && 'PushManager' in window) {
-                const registration = await navigator.serviceWorker.ready;
+            if ('serviceWorker' in navigator && 'PushManager' in window && barber?.id) {
+                console.log('Iniciando registro de service worker...');
+                
+                // Registrar service worker para push
+                const registration = await navigator.serviceWorker.register('/push-sw.js', {
+                    scope: '/'
+                });
+                console.log('Service worker registrado:', registration.scope);
+                
+                // Esperar a que el service worker esté completamente activo
+                let serviceWorkerReady = registration.active;
+                if (!serviceWorkerReady) {
+                    console.log('Esperando activación del service worker...');
+                    serviceWorkerReady = await new Promise<ServiceWorker>((resolve) => {
+                        const timeout = setTimeout(() => {
+                            console.log('Timeout esperando service worker, usando registro actual');
+                            resolve(registration.installing || registration.active!);
+                        }, 5000); // 5 segundos de timeout
+                        
+                        registration.addEventListener('updatefound', () => {
+                            const installingWorker = registration.installing;
+                            if (installingWorker) {
+                                installingWorker.addEventListener('statechange', () => {
+                                    if (installingWorker.state === 'activated') {
+                                        clearTimeout(timeout);
+                                        console.log('Service worker activado');
+                                        resolve(installingWorker);
+                                    }
+                                });
+                            }
+                        });
+                        
+                        // Si ya hay un worker instalando, esperar su activación
+                        if (registration.installing) {
+                            registration.installing.addEventListener('statechange', () => {
+                                if (registration.installing?.state === 'activated') {
+                                    clearTimeout(timeout);
+                                    console.log('Service worker activado');
+                                    resolve(registration.installing);
+                                }
+                            });
+                        }
+                        
+                        // Si ya está activo, resolver inmediatamente
+                        if (registration.active) {
+                            clearTimeout(timeout);
+                            resolve(registration.active);
+                        }
+                    });
+                }
+                
+                // Asegurarse de que el service worker esté listo
+                await navigator.serviceWorker.ready;
+                console.log('Service worker listo para push');
+                
+                // Convertir VAPID key
+                const applicationServerKey = urlBase64ToUint8Array(
+                    'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ'
+                );
+                
+                console.log('Iniciando suscripción push...');
                 const subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: 'BEDW4o4KdY7RnEhHZMzSOrxrFvCrbhfAg2By3ZjrMDwd-ArMA4KaSC1pEJMRhFUrA-GeUztAVzqX0I3D8FrHZUQ'
+                    applicationServerKey: applicationServerKey
                 });
-                console.log('✅ Suscripción push exitosa:', subscription);
+                
+                console.log('Suscripción push exitosa:', subscription);
+                
+                // Guardar token en la base de datos (solo con las columnas existentes)
+                const { error } = await supabase.from('barberos_push_tokens').insert({
+                    barbero_id: barber.id,
+                    push_token: JSON.stringify(subscription),
+                    user_agent: navigator.userAgent,
+                    is_active: true
+                });
+                
+                if (error) {
+                    console.error('Error guardando token push:', error);
+                } else {
+                    console.log('Token push guardado exitosamente');
+                }
             }
         } catch (error) {
-            console.error('❌ Error en suscripción push:', error);
+            console.error('Error en suscripción push:', error);
         }
+    };
+
+    // Función auxiliar para convertir VAPID key
+    const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     };
 
     // Manejar rechazo del prompt
     const handleNotificationDismiss = () => {
-        console.log('❌ Usuario rechazó notificaciones');
+        console.log('Usuario rechazó notificaciones');
         setNotificationPromptShown(true);
         setShowNotificationPrompt(false);
         

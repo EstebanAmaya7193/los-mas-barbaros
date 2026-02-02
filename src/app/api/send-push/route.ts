@@ -75,17 +75,33 @@ export async function POST(request: NextRequest) {
             console.error('❌ API: Error en web-push:', pushError);
             
             // Si el suscriptor ya no es válido, podría ser un error 410 Gone
-            if (pushError instanceof Error && pushError.message.includes('410')) {
-                return NextResponse.json({
-                    success: false,
-                    error: 'Suscripción expirada',
-                    code: 'SUBSCRIPTION_EXPIRED'
-                }, { status: 410 });
+            if (pushError instanceof Error) {
+                if (pushError.message.includes('410') || pushError.message.includes('Gone')) {
+                    console.log('🗑️ Suscripción expirada, se debería eliminar de la base de datos');
+                    return NextResponse.json({
+                        success: false,
+                        error: 'Suscripción expirada',
+                        code: 'SUBSCRIPTION_EXPIRED',
+                        details: pushError.message
+                    }, { status: 410 });
+                }
+                
+                // Error de rate limiting
+                if (pushError.message.includes('429') || pushError.message.includes('rate')) {
+                    console.log('⏱️ Rate limit excedido');
+                    return NextResponse.json({
+                        success: false,
+                        error: 'Demasiadas solicitudes',
+                        code: 'RATE_LIMIT_EXCEEDED',
+                        details: pushError.message
+                    }, { status: 429 });
+                }
             }
             
             return NextResponse.json({
                 success: false,
                 error: 'Error enviando notificación',
+                code: 'PUSH_ERROR',
                 details: pushError instanceof Error ? pushError.message : 'Unknown error'
             }, { status: 500 });
         }

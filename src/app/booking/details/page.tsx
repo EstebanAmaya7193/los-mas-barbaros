@@ -363,7 +363,7 @@ function BookingDetailsContent() {
 
                 // Preparar payload para notificación push
                 const notificationPayload = {
-                    title: '📅 Nueva Cita Agendada',
+                    title: 'Nueva Cita Agendada',
                     body: `${clientInfo?.nombre || 'Cliente'} - ${serviceInfo?.nombre || 'Servicio'} - ${timeWithSec.substring(0, 5)}`,
                     icon: '/assets/logo.jpg',
                     tag: 'new-appointment',
@@ -396,7 +396,7 @@ function BookingDetailsContent() {
                     .eq('is_active', true);
 
                 if (tokens && tokens.length > 0) {
-                    console.log(`📱 Enviando notificación push real a ${tokens.length} dispositivos...`);
+                    console.log(`Enviando notificación push a ${tokens.length} dispositivos...`);
                     
                     // Usar el servicio de envío push real
                     const pushService = RealPushService.getInstance();
@@ -405,14 +405,14 @@ function BookingDetailsContent() {
                         notificationPayload
                     );
                     
-                    console.log(`✅ Notificación push real enviada a ${successCount} dispositivos`);
+                    console.log(`Notificación push enviada a ${successCount} dispositivos`);
                 } else {
-                    console.log('❌ No hay tokens push registrados para este barbero');
+                    console.log('No hay tokens push registrados para este barbero');
                 }
 
-                console.log('✅ Notificación enviada al barbero:', barberInfo?.nombre);
+                console.log('Notificación enviada al barbero:', barberInfo?.nombre);
             } catch (notificationError) {
-                console.log('📝 Error en notificación push (continuando normalmente):', notificationError);
+                console.log('Error en notificación push (continuando normalmente):', notificationError);
             }
 
             router.push(`/booking/confirmation?id=${bookingData.id}`);

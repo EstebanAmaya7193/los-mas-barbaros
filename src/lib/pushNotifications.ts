@@ -101,12 +101,10 @@ export class PushNotificationManager {
                 .delete()
                 .eq('barbero_id', barberId);
 
-            // Luego insertar el nuevo token
+            // Luego insertar el nuevo token (solo con columnas existentes)
             const { data, error } = await supabase.from('barberos_push_tokens').insert({
                 barbero_id: barberId,
                 push_token: JSON.stringify(subscription),
-                p256dh_key: subscription.keys.p256dh,
-                auth_key: subscription.keys.auth,
                 user_agent: navigator.userAgent,
                 is_active: true
             });
