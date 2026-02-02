@@ -398,14 +398,26 @@ function BookingDetailsContent() {
                 if (tokens && tokens.length > 0) {
                     console.log(`Enviando notificación push a ${tokens.length} dispositivos...`);
                     
-                    // Usar el servicio de envío push real
-                    const pushService = RealPushService.getInstance();
-                    const successCount = await pushService.sendPushNotificationToMultiple(
-                        tokens.map(t => t.push_token),
-                        notificationPayload
-                    );
-                    
-                    console.log(`Notificación push enviada a ${successCount} dispositivos`);
+                    try {
+                        // Usar el servicio de envío push real
+                        const pushService = RealPushService.getInstance();
+                        const successCount = await pushService.sendPushNotificationToMultiple(
+                            tokens.map(t => t.push_token),
+                            notificationPayload
+                        );
+                        
+                        console.log(`Notificación push enviada a ${successCount} dispositivos`);
+                        
+                        // Si al menos una notificación se envió, considerar éxito
+                        if (successCount > 0) {
+                            console.log('Notificaciones push enviadas exitosamente');
+                        } else {
+                            console.log('No se pudieron enviar notificaciones push');
+                        }
+                    } catch (pushError) {
+                        console.error('Error en el sistema de notificaciones push:', pushError);
+                        // No bloquear el flujo por errores de notificación
+                    }
                 } else {
                     console.log('No hay tokens push registrados para este barbero');
                 }

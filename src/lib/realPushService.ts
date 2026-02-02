@@ -170,6 +170,14 @@ export class RealPushService {
             result.status === 'fulfilled' && result.value === true
         ).length;
 
+        const failedCount = results.filter(result => 
+            result.status === 'rejected' || (result.status === 'fulfilled' && result.value === false)
+        ).length;
+
+        if (failedCount > 0) {
+            console.log(`${failedCount} notificaciones fallaron, ${successCount} exitosas`);
+        }
+
         console.log(`Resultados: ${successCount}/${tokens.length} notificaciones enviadas exitosamente`);
         return successCount;
     }

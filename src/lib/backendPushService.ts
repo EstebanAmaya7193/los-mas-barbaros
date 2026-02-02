@@ -26,7 +26,7 @@ export async function sendPushViaBackend(
     payload: PushPayload
 ): Promise<boolean> {
     try {
-        console.log('📡 Enviando notificación via backend...');
+        console.log('Enviando notificación via backend...');
         
         // Llamar a tu API route de Next.js
         const response = await fetch('/api/send-push', {
@@ -41,15 +41,16 @@ export async function sendPushViaBackend(
         });
         
         if (!response.ok) {
-            throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+            console.error(`Backend error: ${response.status} ${response.statusText}`);
+            return false;
         }
         
         const result = await response.json();
-        console.log('✅ Backend response:', result);
+        console.log('Backend response:', result);
         return result.success;
         
     } catch (error) {
-        console.error('❌ Error en backend push:', error);
+        console.error('Error en backend push:', error);
         return false;
     }
 }

@@ -21,7 +21,7 @@ webPush.setVapidDetails(
 
 export async function POST(request: NextRequest) {
     try {
-        console.log('📡 API: Recibida solicitud de envío push');
+        console.log('API: Recibida solicitud de envío push');
         
         const body = await request.json();
         const { pushToken, payload } = body;
@@ -37,12 +37,12 @@ export async function POST(request: NextRequest) {
         let subscription;
         try {
             subscription = JSON.parse(pushToken);
-            console.log('📦 API: Suscripción parseada:', {
+            console.log('API: Suscripción parseada:', {
                 endpoint: subscription.endpoint,
                 hasKeys: !!subscription.keys
             });
         } catch (parseError) {
-            console.error('❌ API: Error parseando token:', parseError);
+            console.error('API: Error parseando token:', parseError);
             return NextResponse.json(
                 { error: 'Token inválido' },
                 { status: 400 }
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         
         // Enviar notificación usando web-push
         try {
-            console.log('📡 API: Enviando a web-push...');
+            console.log('API: Enviando a web-push...');
             
             const result = await webPush.sendNotification(
                 subscription,
@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
                 }
             );
             
-            console.log('✅ API: Notificación enviada exitosamente');
-            console.log('📊 API: Resultado web-push:', result);
+            console.log('API: Notificación enviada exitosamente');
+            console.log('API: Resultado web-push:', result);
             
             return NextResponse.json({
                 success: true,
@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
             });
             
         } catch (pushError) {
-            console.error('❌ API: Error en web-push:', pushError);
+            console.error('API: Error en web-push:', pushError);
             
             // Si el suscriptor ya no es válido, podría ser un error 410 Gone
             if (pushError instanceof Error) {
                 if (pushError.message.includes('410') || pushError.message.includes('Gone')) {
-                    console.log('🗑️ Suscripción expirada, se debería eliminar de la base de datos');
+                    console.log('Suscripción expirada, se debería eliminar de la base de datos');
                     return NextResponse.json({
                         success: false,
                         error: 'Suscripción expirada',
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
                 
                 // Error de rate limiting
                 if (pushError.message.includes('429') || pushError.message.includes('rate')) {
-                    console.log('⏱️ Rate limit excedido');
+                    console.log('Rate limit excedido');
                     return NextResponse.json({
                         success: false,
                         error: 'Demasiadas solicitudes',
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         }
         
     } catch (error) {
-        console.error('❌ API: Error general:', error);
+        console.error('API: Error general:', error);
         return NextResponse.json(
             { error: 'Error interno del servidor' },
             { status: 500 }
