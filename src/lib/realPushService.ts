@@ -72,14 +72,22 @@ export class RealPushService {
                 return false;
             }
             
-            // Enviar via backend API
-            const success = await sendPushViaBackend(pushToken, payload);
+            // Enviar via backend API con timeout
+            const success = await Promise.race([
+                sendPushViaBackend(pushToken, payload),
+                new Promise<boolean>((_, reject) => 
+                    setTimeout(() => reject(new Error('Timeout')), 5000) // 5 segundos timeout
+                )
+            ]).catch(error => {
+                console.error('Error o timeout en backend:', error);
+                return false;
+            });
             
             if (success) {
                 console.log('Notificación push enviada exitosamente via backend');
                 return true;
             } else {
-                console.error('Error en backend push');
+                console.error('Error en backend push, intentando fallback');
                 
                 // Fallback: enviar al service worker local para debug
                 return this.sendToServiceWorker(subscription, payload);

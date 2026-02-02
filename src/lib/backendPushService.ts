@@ -41,7 +41,16 @@ export async function sendPushViaBackend(
         });
         
         if (!response.ok) {
-            console.error(`Backend error: ${response.status} ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.error(`Backend error: ${response.status} ${response.statusText}`, errorData);
+            
+            // Si es un token inválido o expirado, marcarlo para limpieza
+            if (response.status === 400 || response.status === 410) {
+                console.log('Token inválido detectado, debería limpiarse:', pushToken.substring(0, 50) + '...');
+                // Aquí podrías llamar a una función para limpiar el token
+                await markTokenAsInvalid(pushToken);
+            }
+            
             return false;
         }
         
@@ -52,5 +61,16 @@ export async function sendPushViaBackend(
     } catch (error) {
         console.error('Error en backend push:', error);
         return false;
+    }
+}
+
+// Función para marcar tokens inválidos (implementación simple)
+async function markTokenAsInvalid(_pushToken: string): Promise<void> {
+    try {
+        // Esta función podría implementarse para limpiar tokens inválidos
+        // Por ahora solo logueamos para debugging
+        console.log('Token marcado como inválido (pendiente implementación limpieza)');
+    } catch (error) {
+        console.error('Error marcando token como inválido:', error);
     }
 }

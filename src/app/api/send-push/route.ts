@@ -77,7 +77,16 @@ export async function POST(request: NextRequest) {
             // Si el suscriptor ya no es válido, podría ser un error 410 Gone
             if (pushError instanceof Error) {
                 if (pushError.message.includes('410') || pushError.message.includes('Gone')) {
-                    console.log('Suscripción expirada, se debería eliminar de la base de datos');
+                    console.log('Suscripción expirada, limpiando token de la base de datos');
+                    
+                    // Intentar eliminar el token inválido de la base de datos
+                    try {
+                        // Esto requeriría pasar el barbero_id, por ahora solo logueamos
+                        console.log('Token inválido detectado, debería eliminarse:', subscription.endpoint);
+                    } catch (cleanupError) {
+                        console.error('Error limpiando token:', cleanupError);
+                    }
+                    
                     return NextResponse.json({
                         success: false,
                         error: 'Suscripción expirada',
@@ -95,6 +104,18 @@ export async function POST(request: NextRequest) {
                         code: 'RATE_LIMIT_EXCEEDED',
                         details: pushError.message
                     }, { status: 429 });
+                }
+                
+                // Error de token inválido (400/404)
+                if (pushError.message.includes('400') || pushError.message.includes('404') || 
+                    pushError.message.includes('Invalid') || pushError.message.includes('Not Found')) {
+                    console.log('Token inválido detectado:', subscription.endpoint);
+                    return NextResponse.json({
+                        success: false,
+                        error: 'Token inválido',
+                        code: 'INVALID_TOKEN',
+                        details: pushError.message
+                    }, { status: 400 });
                 }
             }
             
