@@ -16,11 +16,16 @@ export interface LogEntry {
 export interface EnvironmentInfo {
     userAgent: string;
     isIOS: boolean;
+    iOSVersion: string;
     isStandalone: boolean;
     hasServiceWorker: boolean;
+    hasServiceWorkerAPI: boolean;
+    hasServiceWorkerContainer: boolean;
     hasPushManager: boolean;
     hasNotification: boolean;
-    notificationPermission: NotificationPermission | 'unsupported';
+    notificationPermission: string;
+    isSecureContext: boolean;
+    protocol: string;
     screenSize: string;
     url: string;
 }
@@ -49,11 +54,16 @@ class PushLogger {
             return {
                 userAgent: 'server',
                 isIOS: false,
+                iOSVersion: 'unknown',
                 isStandalone: false,
                 hasServiceWorker: false,
+                hasServiceWorkerAPI: false,
+                hasServiceWorkerContainer: false,
                 hasPushManager: false,
                 hasNotification: false,
                 notificationPermission: 'unsupported',
+                isSecureContext: false,
+                protocol: 'server',
                 screenSize: 'unknown',
                 url: 'server'
             };
@@ -63,24 +73,48 @@ class PushLogger {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
             (window.navigator as { standalone?: boolean }).standalone === true;
 
-        let notificationPermission: NotificationPermission | 'unsupported' = 'unsupported';
+        // Detectar versión de iOS
+        let iOSVersion = 'unknown';
+        if (isIOS) {
+            const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+            if (match) {
+                iOSVersion = `${match[1]}.${match[2]}${match[3] ? '.' + match[3] : ''}`;
+            }
+        }
+
+        // Detección detallada de APIs
+        const hasServiceWorkerAPI = 'serviceWorker' in navigator;
+        const hasServiceWorkerContainer = navigator.serviceWorker !== undefined;
+        const hasPushManager = 'PushManager' in window;
+        const hasNotification = 'Notification' in window;
+
+        let notificationPermission: string = 'unsupported';
         try {
-            if ('Notification' in window) {
+            if (hasNotification) {
                 notificationPermission = Notification.permission;
             }
         } catch {
-            notificationPermission = 'unsupported';
+            notificationPermission = 'error';
         }
+
+        // Verificar HTTPS
+        const isSecureContext = window.isSecureContext;
+        const protocol = window.location.protocol;
 
         return {
             userAgent: navigator.userAgent,
             isIOS,
+            iOSVersion,
             isStandalone,
-            hasServiceWorker: 'serviceWorker' in navigator,
-            hasPushManager: 'PushManager' in window,
-            hasNotification: 'Notification' in window,
+            hasServiceWorker: hasServiceWorkerAPI && hasServiceWorkerContainer,
+            hasServiceWorkerAPI,
+            hasServiceWorkerContainer,
+            hasPushManager,
+            hasNotification,
             notificationPermission,
-            screenSize: `${window.innerWidth}x${window.innerHeight}`,
+            isSecureContext,
+            protocol,
+            screenSize: `${window.screen.width}x${window.screen.height}`,
             url: window.location.href
         };
     }
