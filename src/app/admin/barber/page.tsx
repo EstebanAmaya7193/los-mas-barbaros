@@ -94,9 +94,9 @@ const initPushNotifications = async (barberId?: string): Promise<boolean> => {
 
     // Detección de PWA para iOS (las push solo funcionan en PWA instalada)
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as { standalone?: boolean }).standalone === true;
-    
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as { standalone?: boolean }).standalone === true;
+
     if (isIOS && !isStandalone) {
         console.log('iOS detectado - Push solo disponible en PWA instalada');
         return false;
@@ -104,7 +104,7 @@ const initPushNotifications = async (barberId?: string): Promise<boolean> => {
 
     try {
         // Acceso seguro a Notification.permission
-        const currentPermission = typeof Notification !== 'undefined' ? 
+        const currentPermission = typeof Notification !== 'undefined' ?
             Notification.permission : 'unsupported';
         console.log('Permiso actual:', currentPermission);
 
@@ -120,7 +120,7 @@ const initPushNotifications = async (barberId?: string): Promise<boolean> => {
 
         // Solicitar permiso de forma segura
         const permission = await Notification.requestPermission();
-        
+
         if (permission !== 'granted') {
             console.log('Permisos no concedidos:', permission);
             return false;
@@ -235,7 +235,7 @@ const urlBase64ToUint8Array = (base64String: string): BufferSource => {
 
         .replace(/_/g, '/');
 
-    
+
 
     const rawData = window.atob(base64);
 
@@ -287,7 +287,7 @@ export default function BarberAdmin() {
 
             const promptShown = localStorage.getItem('notification_prompt_shown');
 
-            
+
 
             if (!promptShown) {
 
@@ -295,7 +295,7 @@ export default function BarberAdmin() {
                 const getNotificationStatus = (): 'granted' | 'denied' | 'default' | 'unsupported' => {
                     if (typeof window === 'undefined') return 'unsupported';
                     if (!('Notification' in window)) return 'unsupported';
-                    
+
                     // Acceso seguro a Notification.permission
                     try {
                         return Notification.permission;
@@ -304,11 +304,11 @@ export default function BarberAdmin() {
                     }
                 };
 
-                
+
 
                 const notificationStatus = getNotificationStatus();
 
-                
+
 
                 if (notificationStatus === 'default') {
 
@@ -360,13 +360,13 @@ export default function BarberAdmin() {
 
         setShowNotificationPrompt(false);
 
-        
+
 
         // Guardar que el prompt ya fue mostrado y aceptado
 
         localStorage.setItem('notification_prompt_shown', 'true');
 
-        
+
 
         // Inicializar notificaciones de forma segura
 
@@ -400,7 +400,7 @@ export default function BarberAdmin() {
 
         setShowNotificationPrompt(false);
 
-        
+
 
         // Guardar que el prompt ya fue mostrado (aunque fue rechazado)
 
@@ -418,7 +418,7 @@ export default function BarberAdmin() {
 
             const registration = await navigator.serviceWorker.ready;
 
-            
+
 
             // Enviar mensaje al service worker para mostrar notificación
 
@@ -440,7 +440,7 @@ export default function BarberAdmin() {
 
             });
 
-            
+
 
             console.log('🧪 Mensaje de prueba enviado al service worker');
 
@@ -460,7 +460,7 @@ export default function BarberAdmin() {
 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-    const [confirmAction, setConfirmAction] = useState<() => void>(() => {});
+    const [confirmAction, setConfirmAction] = useState<() => void>(() => { });
 
     const [showConflictModal, setShowConflictModal] = useState(false);
 
@@ -870,11 +870,11 @@ export default function BarberAdmin() {
 
                         </div>
 
-                        
+
 
                         <p className="text-gray-600 dark:text-gray-400 mb-6">¿Estás seguro de cancelar esta cita?</p>
 
-                        
+
 
                         <div className="flex gap-3">
 
@@ -957,20 +957,25 @@ export default function BarberAdmin() {
                     </div>
 
 
+                    <div className="flex items-center gap-2">
+                        {/* Debug Logs Button */}
+                        <Link
+                            href="/admin/debug-logs"
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all active:scale-90"
+                            title="Ver Logs de Depuración"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">bug_report</span>
+                        </Link>
 
-                    <button
-
-                        onClick={handleLogout}
-
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-90"
-
-                        title="Cerrar Sesión"
-
-                    >
-
-                        <span className="material-symbols-outlined text-[20px]">logout</span>
-
-                    </button>
+                        {/* Logout Button */}
+                        <button
+                            onClick={handleLogout}
+                            className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-90"
+                            title="Cerrar Sesión"
+                        >
+                            <span className="material-symbols-outlined text-[20px]">logout</span>
+                        </button>
+                    </div>
 
                 </header>
 
@@ -980,7 +985,7 @@ export default function BarberAdmin() {
 
                 {showNotificationPrompt && barber && (
 
-                    <PushPermissionPrompt 
+                    <PushPermissionPrompt
 
                         onAccept={handleNotificationAccept}
 
@@ -1234,9 +1239,9 @@ export default function BarberAdmin() {
 
                                 appointments.map((apt) => (
 
-                                    <div 
+                                    <div
 
-                                        key={apt.id} 
+                                        key={apt.id}
 
                                         className="glass-card-strong rounded-2xl p-4 flex items-center gap-4 transition-all hover:bg-white/40 dark:hover:bg-neutral-800/40 cursor-pointer relative group"
 
