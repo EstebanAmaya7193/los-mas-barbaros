@@ -3,15 +3,23 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import InstallPWAPrompt from "@/components/InstallPWAPrompt";
+import PushPermissionPrompt from "@/components/PushPermissionPrompt";
+import PushNotificationManager from "@/lib/pushNotifications";
+import { logPushInfo, logPushSuccess, logPushWarn } from "@/lib/pushLogger";
 
 export default function LoginPage() {
     const router = useRouter();
-    // Modo barber por defecto
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+    // PWA and Push Notification states
+    const [showPWAPrompt, setShowPWAPrompt] = useState(false);
+    const [showPushPrompt, setShowPushPrompt] = useState(false);
+    const [barberId, setBarberId] = useState<string | null>(null);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,25 +27,47 @@ export default function LoginPage() {
         setMessage(null);
 
         try {
+            logPushInfo('User attempting to login', { email });
+
             // Solo modo barber disponible
-            const { error: authError } = await supabase.auth.signInWithPassword({
+            const { data, error: authError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
 
             if (authError) throw authError;
 
+            logPushSuccess('User logged in successfully');
+
             setMessage({
                 type: 'success',
-                text: "✅ ¡Acceso correcto! Redirigiendo..."
+                text: "✅ ¡Acceso correcto! Configurando notificaciones..."
             });
 
+            // Get barber data
+            const { data: barberData } = await supabase
+                .from("barberos")
+                .select("*")
+                .eq("user_id", data.user.id)
+                .single();
+
+            if (barberData) {
+                setBarberId(barberData.id);
+                logPushInfo('Barber data retrieved', { barberId: barberData.id });
+
+                // Check if we should show PWA or Push prompts
+                await handlePostLoginPrompts();
+            }
+
+            // Redirect after showing prompts(or if no prompts)
             setTimeout(() => {
-                router.push('/admin');
+                router.push('/admin/barber');
                 router.refresh();
-            }, 1000);
+            }, showPWAPrompt || showPushPrompt ? 500 : 1000);
+
         } catch (err: unknown) {
             console.error("Login error:", err);
+            logPushWarn('Login failed', { error: err });
             const errorMessage = err instanceof Error ? err.message : "Error al iniciar sesión";
             setMessage({
                 type: 'error',
@@ -46,6 +76,92 @@ export default function LoginPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handlePostLoginPrompts = async () => {
+        // Check if running in browser
+        if (typeof window === 'undefined') return;
+
+        // Check if prompt was already shown
+        const promptShown = localStorage.getItem('notification_prompt_shown');
+        if (promptShown === 'true') {
+            logPushInfo('Notification prompt already shown before');
+            return;
+        }
+
+        // Detect iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+            (window.navigator as { standalone?: boolean }).standalone === true;
+
+        logPushInfo('Post-login environment check', { isIOS, isStandalone });
+
+        if (isIOS && !isStandalone) {
+            // Show PWA installation prompt for iOS
+            logPushInfo('Showing PWA installation prompt for iOS');
+            setTimeout(() => setShowPWAPrompt(true), 1500);
+        } else {
+            // Check notification permission status
+            let notificationPermission: NotificationPermission | 'unsupported' = 'unsupported';
+            try {
+                if ('Notification' in window) {
+                    notificationPermission = Notification.permission;
+                }
+            } catch {
+                notificationPermission = 'unsupported';
+            }
+
+            logPushInfo('Notification permission status', { notificationPermission });
+
+            if (notificationPermission === 'default') {
+                // Show push permission prompt
+                logPushInfo('Showing push permission prompt');
+                setTimeout(() => setShowPushPrompt(true), 1500);
+            } else if (notificationPermission === 'granted') {
+                // Automatically initialize push notifications
+                logPushInfo('Permission already granted, initializing push automatically');
+                if (barberId) {
+                    const pushManager = PushNotificationManager.getInstance();
+                    await pushManager.requestPermissionAndSubscribe(barberId);
+                }
+                localStorage.setItem('notification_prompt_shown', 'true');
+            }
+        }
+    };
+
+    const handlePWAPromptDismiss = () => {
+        logPushInfo('User dismissed PWA installation prompt');
+        setShowPWAPrompt(false);
+        localStorage.setItem('notification_prompt_shown', 'true');
+    };
+
+    const handlePWAInstalled = () => {
+        logPushSuccess('User acknowledged PWA installation instructions');
+        setShowPWAPrompt(false);
+        localStorage.setItem('notification_prompt_shown', 'true');
+    };
+
+    const handlePushAccept = async () => {
+        logPushInfo('User accepted push notifications');
+        setShowPushPrompt(false);
+        localStorage.setItem('notification_prompt_shown', 'true');
+
+        if (barberId) {
+            const pushManager = PushNotificationManager.getInstance();
+            const success = await pushManager.requestPermissionAndSubscribe(barberId);
+
+            if (success) {
+                logPushSuccess('Push notifications configured successfully');
+            } else {
+                logPushWarn('Failed to configure push notifications');
+            }
+        }
+    };
+
+    const handlePushDismiss = () => {
+        logPushInfo('User dismissed push notifications');
+        setShowPushPrompt(false);
+        localStorage.setItem('notification_prompt_shown', 'true');
     };
 
     return (
@@ -64,9 +180,9 @@ export default function LoginPage() {
             <main className="relative z-10 flex-grow flex flex-col items-center justify-center px-6 w-full max-w-md mx-auto">
                 <div className="flex flex-col items-center mb-6">
                     <div className="size-14 bg-black dark:bg-white rounded-2xl flex items-center justify-center shadow-xl rotate-3 mb-4 transition-transform hover:scale-110 active:scale-95 overflow-hidden">
-                        <img 
-                            src="/assets/logo.jpg" 
-                            alt="Los Más Bárbaros Logo" 
+                        <img
+                            src="/assets/logo.jpg"
+                            alt="Los Más Bárbaros Logo"
                             className="w-full h-full object-cover"
                         />
                     </div>
@@ -74,8 +190,6 @@ export default function LoginPage() {
                         Los Más<br />Bárbaros
                     </h1>
                 </div>
-
-                {/* Role Switcher - Oculto temporalmente */}
 
                 <div className="glass-panel w-full p-8 rounded-[32px] relative overflow-hidden group border border-white/20">
                     <div className="relative z-10">
@@ -112,22 +226,22 @@ export default function LoginPage() {
                             </div>
 
                             <div className="space-y-1.5 animate-in slide-in-from-top-2 duration-300">
-                                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1" htmlFor="password">Password</label>
-                                    <div className="relative">
-                                        <input
-                                            className="w-full h-12 rounded-xl bg-white/60 dark:bg-white/5 border border-neutral-200 dark:border-white/10 px-4 text-sm font-medium focus:ring-2 ring-primary transition-all text-black dark:text-white"
-                                            id="password"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            placeholder="••••••••"
-                                            required
-                                        />
-                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
-                                            <span className="material-symbols-outlined text-[20px]">lock</span>
-                                        </div>
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1" htmlFor="password">Password</label>
+                                <div className="relative">
+                                    <input
+                                        className="w-full h-12 rounded-xl bg-white/60 dark:bg-white/5 border border-neutral-200 dark:border-white/10 px-4 text-sm font-medium focus:ring-2 ring-primary transition-all text-black dark:text-white"
+                                        id="password"
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="••••••••"
+                                        required
+                                    />
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                                        <span className="material-symbols-outlined text-[20px]">lock</span>
                                     </div>
                                 </div>
+                            </div>
 
                             <button
                                 type="submit"
@@ -141,12 +255,26 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Ocultado temporalmente - Enlaces de registro */}
-
                 <div className="absolute bottom-6 left-0 right-0 text-center opacity-30">
                     <p className="text-[10px] uppercase font-bold tracking-[0.2em]">Premium Grooming</p>
                 </div>
             </main>
+
+            {/* PWA Installation Prompt for iOS */}
+            {showPWAPrompt && (
+                <InstallPWAPrompt
+                    onDismiss={handlePWAPromptDismiss}
+                    onInstalled={handlePWAInstalled}
+                />
+            )}
+
+            {/* Push Notification Permission Prompt */}
+            {showPushPrompt && (
+                <PushPermissionPrompt
+                    onAccept={handlePushAccept}
+                    onDismiss={handlePushDismiss}
+                />
+            )}
         </div>
     );
 }

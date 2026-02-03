@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { logPushInfo, logPushSuccess, logPushWarn, logPushError, logPushDebug } from '@/lib/pushLogger';
 
 interface PushPermissionPromptProps {
     onAccept: () => void;
@@ -12,88 +13,91 @@ export default function PushPermissionPrompt({ onAccept, onDismiss }: PushPermis
     const [isRequesting, setIsRequesting] = useState(false);
 
     useEffect(() => {
+        logPushInfo('PushPermissionPrompt component mounted and displayed');
         // Animación de entrada
         setTimeout(() => setIsVisible(true), 100);
     }, []);
 
+    const handleDismiss = () => {
+        logPushInfo('PushPermissionPrompt: User dismissed prompt');
+        setIsVisible(false);
+        setTimeout(() => onDismiss(), 300);
+    };
+
     const handleAccept = async () => {
         setIsRequesting(true);
-        
+
         try {
-            console.log('🔔 Solicitando permiso de notificaciones...');
-            
+            logPushInfo('PushPermissionPrompt: User clicked accept');
+
             // Validación segura para iOS
             if (typeof window === 'undefined' || !('Notification' in window)) {
-                console.log('❌ API de Notification no disponible');
+                logPushWarn('PushPermissionPrompt: Notification API not available');
                 onDismiss();
                 return;
             }
-            
+
             // Verificar estado actual de forma segura
             let currentPermission: NotificationPermission;
             try {
                 currentPermission = Notification.permission;
+                logPushDebug('PushPermissionPrompt: Current permission', { currentPermission });
             } catch {
-                console.log('❌ Error accediendo a Notification.permission');
+                logPushError('PushPermissionPrompt: Error accessing Notification.permission');
                 onDismiss();
                 return;
             }
-            
+
             if (currentPermission === 'granted') {
-                console.log('✅ Permisos ya concedidos');
+                logPushSuccess('PushPermissionPrompt: Permissions already granted');
                 onAccept();
                 return;
             }
-            
+
             if (currentPermission === 'denied') {
-                console.log('❌ Permisos denegados previamente');
+                logPushWarn('PushPermissionPrompt: Permissions previously denied');
                 onDismiss();
                 return;
             }
-            
+
             // Detección de iOS para mostrar mensaje apropiado
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                                (window.navigator as { standalone?: boolean }).standalone === true;
-            
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                (window.navigator as { standalone?: boolean }).standalone === true;
+
+            logPushDebug('PushPermissionPrompt: iOS detection', { isIOS, isStandalone });
+
             if (isIOS && !isStandalone) {
-                console.log('iOS detectado - Push solo disponible en PWA instalada');
-                // Podríamos mostrar un mensaje diferente pero por ahora dismiss
+                logPushWarn('PushPermissionPrompt: iOS detected but not in standalone mode');
                 onDismiss();
                 return;
             }
-            
+
             // Solicitar permiso (esto debe ser triggered por un gesto del usuario)
+            logPushInfo('PushPermissionPrompt: Requesting permission...');
             const permission = await Notification.requestPermission();
-            console.log('📋 Permiso obtenido:', permission);
-            
+            logPushInfo('PushPermissionPrompt: Permission result', { permission });
+
             if (permission === 'granted') {
-                console.log('✅ Permisos concedidos');
+                logPushSuccess('PushPermissionPrompt: Permissions granted');
                 onAccept();
             } else {
-                console.log('❌ Permisos denegados o no decididos');
+                logPushWarn('PushPermissionPrompt: Permissions denied or not decided');
                 onDismiss();
             }
         } catch (error) {
-            console.error('❌ Error solicitando permisos:', error);
+            logPushError('PushPermissionPrompt: Error requesting permissions', error);
             onDismiss();
         } finally {
             setIsRequesting(false);
         }
     };
 
-    const handleDismiss = () => {
-        setIsVisible(false);
-        setTimeout(() => onDismiss(), 300);
-    };
-
     return (
-        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 transition-all duration-300 ${
-            isVisible ? 'opacity-100' : 'opacity-0'
-        }`}>
-            <div className={`glass-card-strong w-full max-w-sm rounded-[32px] p-6 shadow-2xl transform transition-all duration-300 ${
-                isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 transition-all duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'
             }`}>
+            <div className={`glass-card-strong w-full max-w-sm rounded-[32px] p-6 shadow-2xl transform transition-all duration-300 ${isVisible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
+                }`}>
                 {/* Icono y título */}
                 <div className="text-center mb-6">
                     <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -154,7 +158,7 @@ export default function PushPermissionPrompt({ onAccept, onDismiss }: PushPermis
                             </>
                         )}
                     </button>
-                    
+
                     <button
                         onClick={handleDismiss}
                         disabled={isRequesting}
