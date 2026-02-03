@@ -21,7 +21,11 @@ export class PushNotificationManager {
     private isSupported: boolean = false;
 
     private constructor() {
-        this.isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+        // Validación segura para iOS
+        this.isSupported = typeof window !== 'undefined' &&
+                          'serviceWorker' in navigator && 
+                          'PushManager' in window &&
+                          'Notification' in window;
     }
 
     static getInstance(): PushNotificationManager {
@@ -40,9 +44,34 @@ export class PushNotificationManager {
             return false;
         }
 
+        // Detección de PWA para iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                            (window.navigator as { standalone?: boolean }).standalone === true;
+        
+        if (isIOS && !isStandalone) {
+            console.log('iOS detectado - Push solo disponible en PWA instalada');
+            return false;
+        }
+
         try {
-            // 1. Solicitar permiso
-            console.log('🔔 Solicitando permiso de notificaciones...');
+            // 1. Solicitar permiso de forma segura
+            console.log('� Solicitando permiso de notificaciones...');
+            
+            // Verificar estado actual de forma segura
+            const currentPermission = typeof Notification !== 'undefined' ? 
+                Notification.permission : 'unsupported';
+            
+            if (currentPermission === 'granted') {
+                console.log('✅ Permisos ya concedidos');
+                return await this.performSubscription(barberId);
+            }
+            
+            if (currentPermission === 'denied') {
+                console.log('❌ Permiso denegado');
+                return false;
+            }
+
             const permission = await Notification.requestPermission();
             console.log('📋 Permiso obtenido:', permission);
             
@@ -51,10 +80,20 @@ export class PushNotificationManager {
                 return false;
             }
 
-            // 2. Registrar service worker y suscribirse
+            // 2. Realizar suscripción
+            return await this.performSubscription(barberId);
+        } catch (error) {
+            console.error('❌ Error en suscripción push:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Realizar la suscripción push (método auxiliar)
+     */
+    private async performSubscription(barberId: string): Promise<boolean> {
+        try {
             console.log('🔧 Registrando service worker...');
-            
-            // Usar el método robusto de registro
             const registration = await this.registerServiceWorker();
             console.log('✅ Service worker listo para suscripción');
             
@@ -70,7 +109,7 @@ export class PushNotificationManager {
             });
             console.log('✅ Suscripción exitosa:', subscription);
 
-            // 3. Guardar token en la base de datos
+            // Guardar token en la base de datos
             console.log('💾 Guardando token en base de datos para barbero:', barberId);
             await this.saveTokenToDatabase(barberId, subscription as unknown as CustomPushSubscription);
             
@@ -78,7 +117,7 @@ export class PushNotificationManager {
             console.log('🎉 Sistema push completado exitosamente');
             return true;
         } catch (error) {
-            console.error('❌ Error en suscripción push:', error);
+            console.error('❌ Error en performSubscription:', error);
             return false;
         }
     }
@@ -200,8 +239,14 @@ export class PushNotificationManager {
     async isEnabled(): Promise<boolean> {
         if (!this.isSupported) return false;
         
-        const permission = Notification.permission;
-        return permission === 'granted';
+        // Acceso seguro a Notification.permission
+        try {
+            const permission = typeof Notification !== 'undefined' ? 
+                Notification.permission : 'unsupported';
+            return permission === 'granted';
+        } catch {
+            return false;
+        }
     }
 
     /**

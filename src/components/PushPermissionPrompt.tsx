@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface PushPermissionPromptProps {
     onAccept: () => void;
@@ -22,15 +22,43 @@ export default function PushPermissionPrompt({ onAccept, onDismiss }: PushPermis
         try {
             console.log('🔔 Solicitando permiso de notificaciones...');
             
-            // Verificar estado actual
-            if (Notification.permission === 'granted') {
+            // Validación segura para iOS
+            if (typeof window === 'undefined' || !('Notification' in window)) {
+                console.log('❌ API de Notification no disponible');
+                onDismiss();
+                return;
+            }
+            
+            // Verificar estado actual de forma segura
+            let currentPermission: NotificationPermission;
+            try {
+                currentPermission = Notification.permission;
+            } catch {
+                console.log('❌ Error accediendo a Notification.permission');
+                onDismiss();
+                return;
+            }
+            
+            if (currentPermission === 'granted') {
                 console.log('✅ Permisos ya concedidos');
                 onAccept();
                 return;
             }
             
-            if (Notification.permission === 'denied') {
+            if (currentPermission === 'denied') {
                 console.log('❌ Permisos denegados previamente');
+                onDismiss();
+                return;
+            }
+            
+            // Detección de iOS para mostrar mensaje apropiado
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                                (window.navigator as { standalone?: boolean }).standalone === true;
+            
+            if (isIOS && !isStandalone) {
+                console.log('iOS detectado - Push solo disponible en PWA instalada');
+                // Podríamos mostrar un mensaje diferente pero por ahora dismiss
                 onDismiss();
                 return;
             }

@@ -19,12 +19,21 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isEnabled, setIsEnabled] = useState(false);
 
   useEffect(() => {
-    const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+    // Validación segura para iOS
+    const supported = typeof window !== 'undefined' &&
+                     'serviceWorker' in navigator && 
+                     'PushManager' in window &&
+                     'Notification' in window;
     setIsSupported(supported);
     
     if (supported) {
-      const permission = Notification.permission;
-      setIsEnabled(permission === 'granted');
+      // Acceso seguro a Notification.permission
+      try {
+        const permission = Notification.permission;
+        setIsEnabled(permission === 'granted');
+      } catch {
+        setIsEnabled(false);
+      }
     }
   }, []);
 
@@ -47,14 +56,32 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         try {
           console.log('🔔 Solicitando permiso de notificaciones...');
           
-          // Verificar si ya tenemos permiso
-          if (Notification.permission === 'granted') {
+          // Detección de PWA para iOS
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                              (window.navigator as { standalone?: boolean }).standalone === true;
+          
+          if (isIOS && !isStandalone) {
+            console.log('iOS detectado - Push solo disponible en PWA instalada');
+            return false;
+          }
+          
+          // Verificar si ya tenemos permiso de forma segura
+          let currentPermission: NotificationPermission;
+          try {
+            currentPermission = Notification.permission;
+          } catch {
+            console.log('❌ Error accediendo a Notification.permission');
+            return false;
+          }
+          
+          if (currentPermission === 'granted') {
             console.log('✅ Permisos ya concedidos');
             await subscribeToPush();
             return true;
           }
           
-          if (Notification.permission === 'denied') {
+          if (currentPermission === 'denied') {
             console.log('❌ Permisos denegados previamente');
             return false;
           }
