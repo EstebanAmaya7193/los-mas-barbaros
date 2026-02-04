@@ -109,21 +109,23 @@ export default function SettingsPage() {
         if (!barber) return;
         setSaving(true);
         try {
-            // Upsert schedules
+            // Update each schedule individually to ensure RLS policies work
             const schedulesByDay = new Map(schedules.map((s) => [s.dia_semana, s]));
-            const schedulesPayload = Array.from(schedulesByDay.values()).map((s) => ({
-                barbero_id: barber.id,
-                dia_semana: s.dia_semana,
-                hora_inicio: s.hora_inicio,
-                hora_fin: s.hora_fin,
-                activo: s.activo,
-            }));
 
-            const { error } = await supabase
-                .from("horarios_barberos")
-                .upsert(schedulesPayload, { onConflict: "barbero_id,dia_semana" });
+            for (const schedule of schedulesByDay.values()) {
+                const { error } = await supabase
+                    .from("horarios_barberos")
+                    .update({
+                        hora_inicio: schedule.hora_inicio,
+                        hora_fin: schedule.hora_fin,
+                        activo: schedule.activo,
+                    })
+                    .eq("barbero_id", barber.id)
+                    .eq("dia_semana", schedule.dia_semana);
 
-            if (error) throw error;
+                if (error) throw error;
+            }
+
             alert("¡Cambios guardados correctamente! ✨");
         } catch (err: unknown) {
             console.error("Error saving settings:", err);
