@@ -51,11 +51,26 @@ export default function DetailedAgenda() {
     const router = useRouter();
     const [barbers, setBarbers] = useState<Barber[]>([]);
     const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
-    const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString("en-CA")); // YYYY-MM-DD local
+
+    // Inicializar con cadena vacía para evitar hydration mismatch
+    // La fecha real se establece en useEffect solo en el cliente
+    const [selectedDate, setSelectedDate] = useState("");
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
     const [schedule, setSchedule] = useState<ScheduleData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [mounted, setMounted] = useState(false); // Flag para evitar hydration mismatch
+
+    // Establecer fecha inicial solo en el cliente (evita hydration mismatch)
+    useEffect(() => {
+        setMounted(true); // Marca el componente como montado
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
+    }, []);
+
 
     // Fetch Barbers
     useEffect(() => {
@@ -71,7 +86,7 @@ export default function DetailedAgenda() {
 
     // Fetch Appointments & Blocks
     useEffect(() => {
-        if (!selectedBarberId) return;
+        if (!selectedBarberId || !selectedDate) return;
 
         async function fetchData() {
             setLoading(true);
@@ -132,7 +147,11 @@ export default function DetailedAgenda() {
     const changeDate = (days: number) => {
         const date = new Date(selectedDate + "T00:00:00");
         date.setDate(date.getDate() + days);
-        setSelectedDate(date.toLocaleDateString("en-CA"));
+        // Usar formato local consistente
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
     };
 
     const formatDateHeader = (dateStr: string) => {
@@ -170,13 +189,17 @@ export default function DetailedAgenda() {
 
     while (current < endTime) {
         timelineHours.push(`${String(current.getHours()).padStart(2, '0')}:${String(current.getMinutes()).padStart(2, '0')}`);
-        current.setMinutes(current.getMinutes() + 30);
+        current.setMinutes(current.getMinutes() + 15); // Cambiado de 30 a 15 minutos
     }
 
     // Helper to check if a slot is in the past
     const isSlotPast = (time: string, date: string) => {
         const now = new Date();
-        const todayStr = now.toLocaleDateString("en-CA");
+        // Usar formato local consistente
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
 
         if (date < todayStr) return true;
         if (date > todayStr) return false;
@@ -264,10 +287,18 @@ export default function DetailedAgenda() {
                             <span className="material-symbols-outlined">chevron_left</span>
                         </button>
                         <div className="flex flex-col items-center">
-                            <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                                {new Date(selectedDate + "T00:00:00").toDateString() === new Date().toDateString() ? "Hoy" : ""}
-                            </span>
-                            <span className="text-lg font-bold">{formatDateHeader(selectedDate)}</span>
+                            {mounted ? (
+                                <>
+                                    <span className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                                        {selectedDate && new Date(selectedDate + "T00:00:00").toDateString() === new Date().toDateString() ? "Hoy" : ""}
+                                    </span>
+                                    <span className="text-lg font-bold">
+                                        {selectedDate ? formatDateHeader(selectedDate) : ""}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className="text-lg font-bold">Cargando...</span>
+                            )}
                         </div>
                         <button onClick={() => changeDate(1)} className="w-10 h-10 flex items-center justify-center rounded-full glass-panel hover:bg-white dark:hover:bg-neutral-800 transition-all">
                             <span className="material-symbols-outlined">chevron_right</span>

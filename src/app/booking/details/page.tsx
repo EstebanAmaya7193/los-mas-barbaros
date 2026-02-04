@@ -122,7 +122,11 @@ function BookingDetailsContent() {
         const generatedDates = Array.from({ length: 7 }).map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split("T")[0];
+            // Usar fecha local en lugar de UTC para evitar problemas de zona horaria
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
             const dayName = i === 0 ? "HOY" : i === 1 ? "MAÑ" : d.toLocaleDateString("es-ES", { weekday: "short" }).toUpperCase().replace(".", "");
             return { day: dayName, date: dateStr };
         });
@@ -190,7 +194,7 @@ function BookingDetailsContent() {
     const generateTimeSlots = (occupied: Appointment[], schedule: Schedule | null, blocks: Block[]) => {
         const slots: TimeSlot[] = [];
 
-        // If day is not active, return no slots
+        // If day is not active, show a message instead of empty slots
         if (schedule && !schedule.activo) {
             setTimeSlots([]);
             return;
@@ -203,42 +207,87 @@ function BookingDetailsContent() {
         const [sH, sM] = startHourStr.split(":").map(Number);
         const [eH, eM] = endHourStr.split(":").map(Number);
 
+        // Calculate number of 15-min blocks needed for total service duration
+        const blocksNeeded = Math.ceil(totalDuration / 15);
+
         // Iterate through slots
         const current = new Date();
         current.setHours(sH, sM, 0, 0);
         const endTime = new Date();
         endTime.setHours(eH, eM, 0, 0);
 
+        // Helper function to check if a time slot is occupied or blocked
+        const isSlotOccupied = (timeStr: string) => {
+            // Check if it's lunch hour (1:00 PM - 2:00 PM)
+            const [h, m] = timeStr.split(":").map(Number);
+            if (h === 13 && m >= 0) {
+                return true; // Bloquear todo el horario de 13:00 a 13:45
+            }
+
+            // Check if occupied by appointment
+            const occupiedByApt = occupied.some(apt => {
+                const start = apt.hora_inicio.substring(0, 5);
+                const end = apt.hora_fin.substring(0, 5);
+                return timeStr >= start && timeStr < end;
+            });
+
+            // Check if blocked by barber
+            const blockedByBarber = blocks.some(blk => {
+                const start = blk.hora_inicio.substring(0, 5);
+                const end = blk.hora_fin.substring(0, 5);
+                return timeStr >= start && timeStr < end;
+            });
+
+            return occupiedByApt || blockedByBarber;
+        };
+
         while (current < endTime) {
             const h = current.getHours();
             const m = current.getMinutes();
             const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 
-            // 1. Check if occupied by appointment
-            const isOccupiedByApt = occupied.some(apt => {
-                const start = apt.hora_inicio.substring(0, 5);
-                const end = apt.hora_fin.substring(0, 5);
-                return time >= start && time < end;
-            });
-
-            // 2. Check if blocked by barber
-            const isBlocked = blocks.some(blk => {
-                const start = blk.hora_inicio.substring(0, 5);
-                const end = blk.hora_fin.substring(0, 5);
-                return time >= start && time < end;
-            });
-
-            // 3. Check if past time
+            // 1. Check if past time
             let isPast = false;
-            if (selectedDate === new Date().toISOString().split("T")[0]) {
+            // Obtener la fecha de hoy en formato local (no UTC)
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            if (selectedDate === todayStr) {
                 const now = new Date();
                 isPast = current < now;
             }
 
-            slots.push({ time, available: !isOccupiedByApt && !isBlocked && !isPast });
+            // 2. Check if this slot and all consecutive slots needed are available
+            let hasConsecutiveBlocks = true;
 
-            // Advance 30 mins
-            current.setMinutes(current.getMinutes() + 30);
+            if (!isPast) {
+                // Check each 15-min block needed for this service
+                for (let i = 0; i < blocksNeeded; i++) {
+                    const checkTime = new Date(current);
+                    checkTime.setMinutes(checkTime.getMinutes() + (i * 15));
+
+                    // Check if this block exceeds schedule end time
+                    if (checkTime >= endTime) {
+                        hasConsecutiveBlocks = false;
+                        break;
+                    }
+
+                    const checkH = checkTime.getHours();
+                    const checkM = checkTime.getMinutes();
+                    const checkTimeStr = `${String(checkH).padStart(2, '0')}:${String(checkM).padStart(2, '0')}`;
+
+                    // Check if this block is occupied or blocked
+                    if (isSlotOccupied(checkTimeStr)) {
+                        hasConsecutiveBlocks = false;
+                        break;
+                    }
+                }
+            }
+
+            slots.push({ time, available: !isPast && hasConsecutiveBlocks });
+
+            // Advance 15 mins (changed from 30)
+            current.setMinutes(current.getMinutes() + 15);
         }
 
         setTimeSlots(slots);
@@ -398,7 +447,7 @@ function BookingDetailsContent() {
                 // Enviar notificación push de forma asíncrona sin bloquear
                 if (tokens && tokens.length > 0) {
                     console.log(`Programando envío de notificación push a ${tokens.length} dispositivos...`);
-                    
+
                     // No esperar el resultado - enviar en background
                     setTimeout(async () => {
                         try {
@@ -407,7 +456,7 @@ function BookingDetailsContent() {
                                 tokens.map(t => t.push_token),
                                 notificationPayload
                             );
-                            
+
                             console.log(`Notificaciones push enviadas en background: ${successCount}/${tokens.length}`);
                         } catch (pushError) {
                             console.error('Error en sistema de notificaciones push (background):', pushError);
@@ -493,6 +542,16 @@ function BookingDetailsContent() {
                                 <div key={i} className="h-10 bg-neutral-100 dark:bg-neutral-800 rounded-lg"></div>
                             ))}
                         </div>
+                    ) : timeSlots.length === 0 ? (
+                        <div className="px-4 py-12 text-center">
+                            <span className="material-symbols-outlined text-5xl text-neutral-300 dark:text-neutral-700 mb-3">event_busy</span>
+                            <p className="text-neutral-500 dark:text-neutral-400 font-medium">
+                                No hay horarios disponibles
+                            </p>
+                            <p className="text-neutral-400 dark:text-neutral-500 text-sm mt-1">
+                                Este día no está habilitado para reservas
+                            </p>
+                        </div>
                     ) : (
                         <div className="grid grid-cols-4 gap-3 px-4">
                             {timeSlots.map((slot) => (
@@ -566,7 +625,7 @@ function BookingDetailsContent() {
                     <div className="relative flex items-center justify-between mb-6 px-2">
                         {/* Blur Background - cubre exactamente este elemento */}
                         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl -mx-2 -my-1"></div>
-                        
+
                         <div className="relative flex flex-col gap-1">
                             <span className="text-sm font-medium text-neutral-500">Total {totalDuration} min</span>
                             {selectedDate && selectedTime && (

@@ -31,7 +31,7 @@ export default function ClientsDirectory() {
 
     useEffect(() => {
         let isMounted = true;
-        
+
         async function fetchClients() {
             setLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
@@ -81,13 +81,30 @@ export default function ClientsDirectory() {
                         totalVisits: completedCitas.length
                     };
                 });
-                setClients(formattedClients);
+                // Deduplicar clientes por nombre + teléfono (mantener el con más visitas)
+                const clientMap = new Map<string, Client>();
+                formattedClients.forEach(client => {
+                    const key = `${client.nombre.toLowerCase()}_${client.telefono}`;
+                    const existing = clientMap.get(key);
+
+                    // Si no existe o el actual tiene más visitas, guardarlo
+                    if (!existing || (client.totalVisits || 0) >= (existing.totalVisits || 0)) {
+                        clientMap.set(key, client);
+                    }
+                });
+
+                // Convertir Map a array y ordenar por nombre
+                const uniqueClients = Array.from(clientMap.values()).sort((a, b) =>
+                    a.nombre.localeCompare(b.nombre)
+                );
+
+                setClients(uniqueClients);
             }
             if (isMounted) setLoading(false);
         }
-        
+
         fetchClients();
-        
+
         return () => {
             isMounted = false;
         };

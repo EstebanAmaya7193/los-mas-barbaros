@@ -29,6 +29,7 @@ export default function ServiceSelection() {
             const { data, error } = await supabase
                 .from("servicios")
                 .select("*")
+                .eq("activo", true)  // Solo servicios activos
                 .order("nombre");
 
             if (error) {
@@ -46,7 +47,7 @@ export default function ServiceSelection() {
         if (selectedCategory === "Todos") {
             return services;
         } else {
-            return services.filter(service => 
+            return services.filter(service =>
                 service.nombre.toLowerCase().includes(selectedCategory.toLowerCase())
             );
         }
@@ -60,12 +61,12 @@ export default function ServiceSelection() {
             const words = service.nombre.split(' ');
             return words[0]; // Primera palabra como categoría
         });
-        
+
         // Eliminar duplicados y ordenar
-        const filtered = [...new Set(serviceCategories)].filter(cat => 
+        const filtered = [...new Set(serviceCategories)].filter(cat =>
             cat && cat !== "Todos"
         ).sort();
-        
+
         return [...uniqueCategories, ...filtered];
     }, [services]);
 
@@ -112,17 +113,15 @@ export default function ServiceSelection() {
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
-                            className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 transition-transform active:scale-95 ${
-                                selectedCategory === cat
+                            className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 transition-transform active:scale-95 ${selectedCategory === cat
                                     ? "bg-black shadow-lg shadow-black/10"
                                     : "liquid-card"
-                            }`}
+                                }`}
                         >
-                            <p className={`text-xs font-medium ${
-                                selectedCategory === cat
+                            <p className={`text-xs font-medium ${selectedCategory === cat
                                     ? "text-white font-semibold"
                                     : "text-primary/70"
-                            }`}>
+                                }`}>
                                 {cat}
                             </p>
                         </button>
@@ -147,11 +146,10 @@ export default function ServiceSelection() {
                                 return (
                                     <label
                                         key={service.id}
-                                        className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all active:scale-[0.98] ${
-                                            isSelected
+                                        className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all active:scale-[0.98] ${isSelected
                                                 ? "bg-black text-white shadow-lg shadow-black/10"
                                                 : "liquid-card"
-                                        }`}
+                                            }`}
                                     >
                                         <input
                                             type="checkbox"
@@ -162,26 +160,22 @@ export default function ServiceSelection() {
                                         <div className="flex-1">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex flex-col gap-1">
-                                                    <p className={`text-sm font-bold ${
-                                                        isSelected ? "text-white" : "text-primary"
-                                                    }`}>
+                                                    <p className={`text-sm font-bold ${isSelected ? "text-white" : "text-primary"
+                                                        }`}>
                                                         {service.nombre}
                                                     </p>
-                                                    <p className={`text-xs ${
-                                                        isSelected ? "text-white/70" : "text-gray-500"
-                                                    }`}>
+                                                    <p className={`text-xs ${isSelected ? "text-white/70" : "text-gray-500"
+                                                        }`}>
                                                         {service.descripcion}
                                                     </p>
                                                 </div>
                                                 <div className="flex flex-col items-end gap-1">
-                                                    <span className={`text-sm font-bold ${
-                                                        isSelected ? "text-white" : "text-primary"
-                                                    }`}>
+                                                    <span className={`text-sm font-bold ${isSelected ? "text-white" : "text-primary"
+                                                        }`}>
                                                         ${formatCOP(service.precio)}
                                                     </span>
-                                                    <span className={`text-xs ${
-                                                        isSelected ? "text-white/70" : "text-gray-400"
-                                                    }`}>
+                                                    <span className={`text-xs ${isSelected ? "text-white/70" : "text-gray-400"
+                                                        }`}>
                                                         {service.duracion_minutos} min
                                                     </span>
                                                 </div>
@@ -202,7 +196,7 @@ export default function ServiceSelection() {
                     <div className="relative flex items-center justify-between mb-6 px-1">
                         {/* Blur Background - cubre exactamente este elemento */}
                         <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl -mx-2 -my-1"></div>
-                        
+
                         <div className="relative flex flex-col gap-1">
                             <span className="text-sm font-medium text-gray-500">
                                 {selectedServices.length} servicio
