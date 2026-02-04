@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { formatTime12Hour } from "@/lib/timeFormat";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -112,7 +113,7 @@ function ConfirmationContent() {
 
     const clientName = appointment.clientes?.nombre || '';
     const firstName = (clientName === 'Cliente Web' || !clientName) ? "Bárbaro" : clientName.split(' ')[0];
-    
+
 
 
     const barberName = appointment.barberos?.[0]?.nombre || fallbackBarber?.nombre || '';
@@ -120,9 +121,9 @@ function ConfirmationContent() {
 
     // Simplificar lógica de servicios - manejar objeto
     const allServices = appointment.servicios?.nombre ? [appointment.servicios.nombre] : ['Servicio'];
-    
-    const serviceText = allServices.length > 1 
-        ? `${allServices[0]} +${allServices.length - 1} más` 
+
+    const serviceText = allServices.length > 1
+        ? `${allServices[0]} +${allServices.length - 1} más`
         : allServices[0] || 'Servicio';
 
     return (
@@ -137,12 +138,12 @@ function ConfirmationContent() {
                     <div className="relative flex items-center justify-center size-24 mb-6">
                         <div className="absolute inset-0 rounded-full border border-black/5 dark:border-white/10 animate-ping opacity-20"></div>
                         <div className="absolute inset-0 rounded-full bg-black/5 dark:bg-white/5 scale-110 blur-xl"></div>
-                        <svg 
-                            className="w-full h-full text-primary dark:text-white drop-shadow-sm" 
-                            viewBox="0 0 24 24" 
+                        <svg
+                            className="w-full h-full text-primary dark:text-white drop-shadow-sm"
+                            viewBox="0 0 24 24"
                             fill="currentColor"
                         >
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                         </svg>
                     </div>
                     <h1 className="text-[32px] font-bold tracking-tight text-primary dark:text-white mb-2 leading-tight">
@@ -169,7 +170,7 @@ function ConfirmationContent() {
                                     {formattedDate}
                                 </span>
                                 <span className="text-xl font-medium text-gray-600 dark:text-gray-300">
-                                    {appointment.hora_inicio.substring(0, 5)}
+                                    {formatTime12Hour(appointment.hora_inicio.substring(0, 5))}
                                 </span>
                             </div>
                         </div>

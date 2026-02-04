@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { formatTime12Hour } from "@/lib/timeFormat";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -169,7 +170,7 @@ export default function ProfilePage() {
                                         <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                                             {nextAppointment.fecha}
                                         </span>
-                                        <span className="text-3xl font-black">{nextAppointment.hora_inicio.substring(0, 5)}</span>
+                                        <span className="text-3xl font-black">{formatTime12Hour(nextAppointment.hora_inicio.substring(0, 5))}</span>
                                         <div className="flex items-center gap-1.5 mt-2 text-sm font-medium">
                                             <span className="material-symbols-outlined text-[18px]">content_cut</span>
                                             <span>{nextAppointment.servicios?.nombre}</span>
@@ -214,7 +215,7 @@ export default function ProfilePage() {
                                             </div>
                                             <div>
                                                 <p className="font-bold text-sm">{apt.servicios?.nombre}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{apt.fecha} • {apt.hora_inicio.substring(0, 5)}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{apt.fecha} • {formatTime12Hour(apt.hora_inicio.substring(0, 5))}</p>
                                             </div>
                                         </div>
                                         <span className="text-sm font-black">${apt.monto_total}</span>

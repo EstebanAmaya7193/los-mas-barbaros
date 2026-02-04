@@ -86,7 +86,7 @@ export function PushNotificationPromptSimple({ barberId }: { barberId: string })
           <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
             <span className="material-symbols-outlined text-primary text-xl">notifications</span>
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-primary mb-1">
               🔔 Activa las Notificaciones
@@ -94,7 +94,7 @@ export function PushNotificationPromptSimple({ barberId }: { barberId: string })
             <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
               Recibe alertas instantáneas de nuevas citas, cancelaciones y turnos presenciales, incluso cuando la app esté cerrada.
             </p>
-            
+
             <div className="flex gap-2">
               <button
                 onClick={() => requestPermission(barberId)}
@@ -113,7 +113,7 @@ export function PushNotificationPromptSimple({ barberId }: { barberId: string })
                   </>
                 )}
               </button>
-              
+
               <button
                 onClick={() => console.log('User declined push notifications')}
                 className="px-3 py-2 rounded-xl text-xs font-bold text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -156,13 +156,15 @@ export function PushNotificationStatusSimple({ barberId }: { barberId: string })
     <div className="text-xs text-green-500 flex items-center gap-1">
       <span className="material-symbols-outlined text-sm">notifications_active</span>
       Notificaciones activas
-      <button
+      {/* Test notification button - DISABLED (notifications working on newer iPhones) */}
+      {/* Uncomment to enable test button */}
+      {/* <button
         onClick={sendTestNotification}
         className="ml-2 text-xs text-primary hover:underline"
         title="Enviar notificación de prueba"
       >
         Probar
-      </button>
+      </button> */}
     </div>
   );
 }

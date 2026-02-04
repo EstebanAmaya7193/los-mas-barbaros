@@ -1,6 +1,8 @@
 "use client";
 
 import { supabase } from "@/lib/supabase";
+import { formatTime12Hour } from "@/lib/timeFormat";
+import WhatsAppContactModal from "@/components/WhatsAppContactModal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -21,6 +23,7 @@ interface Appointment {
     duracion_minutos: number;
     clientes: {
         nombre: string;
+        telefono: string;
     } | null;
     servicios: {
         nombre: string;
@@ -60,6 +63,9 @@ export default function DetailedAgenda() {
     const [schedule, setSchedule] = useState<ScheduleData | null>(null);
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false); // Flag para evitar hydration mismatch
+    const [showCalendar, setShowCalendar] = useState(false);
+    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
     // Establecer fecha inicial solo en el cliente (evita hydration mismatch)
     useEffect(() => {
@@ -103,7 +109,7 @@ export default function DetailedAgenda() {
                     .from("citas")
                     .select(`
                         id, fecha, hora_inicio, hora_fin, estado, monto_total, duracion_minutos,
-                        clientes (nombre),
+                        clientes (nombre, telefono),
                         servicios (nombre)
                     `)
                     .eq("barbero_id", selectedBarberId)
@@ -113,7 +119,7 @@ export default function DetailedAgenda() {
                     .from("bloqueos_barberos")
                     .select("*")
                     .eq("barbero_id", selectedBarberId)
-                    .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek}`),
+                    .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`),
                 supabase
                     .from("horarios_barberos")
                     .select("*")
@@ -172,6 +178,53 @@ export default function DetailedAgenda() {
 
     const getStatusLabel = (status: string) => {
         return status.replace("_", " ");
+    };
+
+    // Calendar functions
+    const getDaysInMonth = (date: Date) => {
+        return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (date: Date) => {
+        return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    };
+
+    const generateCalendarDays = () => {
+        const date = new Date(selectedDate + "T00:00:00");
+        const daysInMonth = getDaysInMonth(date);
+        const firstDay = getFirstDayOfMonth(date);
+        const days = [];
+
+        // Add empty cells for days before month starts
+        for (let i = 0; i < firstDay; i++) {
+            days.push(null);
+        }
+
+        // Add days of the month
+        for (let i = 1; i <= daysInMonth; i++) {
+            days.push(i);
+        }
+
+        return days;
+    };
+
+    const handleDateSelect = (day: number) => {
+        const date = new Date(selectedDate + "T00:00:00");
+        const newDate = new Date(date.getFullYear(), date.getMonth(), day);
+        const year = newDate.getFullYear();
+        const month = String(newDate.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(newDate.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${dayStr}`);
+        setShowCalendar(false);
+    };
+
+    const handleMonthChange = (increment: number) => {
+        const date = new Date(selectedDate + "T00:00:00");
+        date.setMonth(date.getMonth() + increment);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        setSelectedDate(`${year}-${month}-${day}`);
     };
 
     // Timeline Generation Logic
@@ -261,6 +314,12 @@ export default function DetailedAgenda() {
                                 <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Los Más Bárbaros</span>
                             </div>
                         </div>
+                        <button
+                            onClick={() => setShowCalendar(!showCalendar)}
+                            className="flex cursor-pointer items-center justify-center rounded-full size-10 text-neutral-800 dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                        >
+                            <span className="material-symbols-outlined">calendar_today</span>
+                        </button>
                     </div>
 
                     <div className="flex gap-4 px-6 overflow-x-auto scrollbar-hide snap-x items-start pb-2">
@@ -280,6 +339,69 @@ export default function DetailedAgenda() {
                         ))}
                     </div>
                 </header>
+
+                {/* Calendar Modal */}
+                {showCalendar && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+                        <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
+                            {/* Calendar Header */}
+                            <div className="flex items-center justify-between mb-4">
+                                <button
+                                    onClick={() => handleMonthChange(-1)}
+                                    className="flex size-8 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-neutral-800 dark:text-white">chevron_left</span>
+                                </button>
+                                <h3 className="text-neutral-800 dark:text-white text-lg font-bold">
+                                    {selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                                </h3>
+                                <button
+                                    onClick={() => handleMonthChange(1)}
+                                    className="flex size-8 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-neutral-800 dark:text-white">chevron_right</span>
+                                </button>
+                            </div>
+
+                            {/* Calendar Grid */}
+                            <div className="grid grid-cols-7 gap-1 mb-2">
+                                {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
+                                    <div key={day} className="text-center text-xs font-bold text-gray-400 dark:text-gray-500 uppercase py-2">
+                                        {day}
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1">
+                                {generateCalendarDays().map((day, index) => (
+                                    <div key={index} className="aspect-square">
+                                        {day ? (
+                                            <button
+                                                onClick={() => handleDateSelect(day)}
+                                                className={`w-full h-full flex items-center justify-center rounded-lg text-sm font-medium transition-all ${selectedDate && day === new Date(selectedDate + "T00:00:00").getDate()
+                                                    ? 'bg-black dark:bg-white text-white dark:text-black'
+                                                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-neutral-800 dark:text-white'
+                                                    }`}
+                                            >
+                                                {day}
+                                            </button>
+                                        ) : (
+                                            <div className="w-full h-full"></div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Close Button */}
+                            <button
+                                onClick={() => setShowCalendar(false)}
+                                className="w-full mt-4 py-2 bg-black/5 dark:bg-white/5 rounded-lg text-sm font-medium text-neutral-800 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            >
+                                Cerrar
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <main className="flex flex-col px-4 w-full h-full">
                     <div className="flex items-center justify-between py-4 mb-2 z-10">
@@ -313,7 +435,6 @@ export default function DetailedAgenda() {
                         ) : (
                             timelineHours.map((time) => {
                                 const apt = appointments.find(a => a.hora_inicio.substring(0, 5) === time);
-                                const isLunch = time === "13:00";
                                 const isCovered = isSlotCovered(time, appointments);
                                 const isBlocked = isSlotBlocked(time);
 
@@ -321,22 +442,9 @@ export default function DetailedAgenda() {
 
                                 return (
                                     <div key={time} className="flex flex-col gap-6">
-                                        {/* Lunch Break Marker */}
-                                        {isLunch && (
-                                            <div className="flex items-center gap-4 py-2 opacity-40">
-                                                <div className="w-[3.5rem] shrink-0"></div>
-                                                <div className="flex-1 flex items-center gap-3">
-                                                    <div className="h-px flex-1 bg-neutral-300"></div>
-                                                    <span className="text-[10px] font-black tracking-[0.3em] uppercase">Almuerzo</span>
-                                                    <div className="h-px flex-1 bg-neutral-300"></div>
-                                                </div>
-                                            </div>
-                                        )}
-
                                         <div className={`group relative grid grid-cols-[3.5rem_1fr] gap-3`}>
                                             <div className="flex flex-col items-end pt-3 z-10">
-                                                <span className="text-sm font-bold font-mono text-neutral-800 dark:text-white">{time}</span>
-                                                <span className="text-[10px] text-neutral-400 uppercase">{Number(time.split(":")[0]) >= 12 ? "PM" : "AM"}</span>
+                                                <span className="text-sm font-bold font-mono text-neutral-800 dark:text-white">{formatTime12Hour(time)}</span>
                                             </div>
 
                                             <div className="flex flex-col justify-center">
@@ -361,6 +469,31 @@ export default function DetailedAgenda() {
                                                                 <span className="text-[10px] text-neutral-400 font-mono">{apt.duracion_minutos} min</span>
                                                                 {isSlotPast(time, selectedDate) && <span className="text-[8px] text-neutral-400 italic">Histórico</span>}
                                                             </div>
+
+                                                            {/* Contact Buttons */}
+                                                            {apt.clientes?.telefono && (
+                                                                <div className="flex gap-1.5 mt-2">
+                                                                    <a
+                                                                        href={`tel:${apt.clientes.telefono}`}
+                                                                        className="flex-1 flex items-center justify-center gap-1 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 py-1.5 px-2 rounded-lg text-[10px] font-bold hover:bg-green-100 dark:hover:bg-green-900/20 transition-all active:scale-95"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        {/* <span className="material-symbols-outlined text-xs">call</span> */}
+                                                                        Llamar
+                                                                    </a>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setSelectedAppointment(apt);
+                                                                            setShowWhatsAppModal(true);
+                                                                        }}
+                                                                        className="flex-1 flex items-center justify-center gap-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 py-1.5 px-2 rounded-lg text-[10px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all active:scale-95"
+                                                                    >
+                                                                        {/* <span className="material-symbols-outlined text-xs">chat</span> */}
+                                                                        WhatsApp
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ) : isBlocked ? (
@@ -385,6 +518,21 @@ export default function DetailedAgenda() {
                         )}
                     </div>
                 </main>
+
+                {/* WhatsApp Contact Modal */}
+                {selectedAppointment && (
+                    <WhatsAppContactModal
+                        isOpen={showWhatsAppModal}
+                        onClose={() => {
+                            setShowWhatsAppModal(false);
+                            setSelectedAppointment(null);
+                        }}
+                        clientName={selectedAppointment.clientes?.nombre || "Cliente"}
+                        clientPhone={selectedAppointment.clientes?.telefono || ""}
+                        appointmentDate={selectedAppointment.fecha}
+                        appointmentTime={selectedAppointment.hora_inicio}
+                    />
+                )}
 
                 <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-2 pt-2 px-4 pointer-events-none">
                     <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl">

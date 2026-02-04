@@ -8,9 +8,9 @@ export default function Home() {
 
   const heroImages = [
     "/assets/trabajos/muestra1.jpg",
-    "/assets/trabajos/muestra2.jpg",
-    "/assets/trabajos/muestra3.jpg",
-    "/assets/trabajos/muestra4.jpg"
+    // "/assets/trabajos/muestra2.jpg",
+    // "/assets/trabajos/muestra3.jpg",
+    // "/assets/trabajos/muestra4.jpg"
   ];
 
   useEffect(() => {

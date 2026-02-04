@@ -2,6 +2,7 @@
 
 import RealPushService from "@/lib/realPushService";
 import { supabase } from "@/lib/supabase";
+import { formatTime12Hour } from "@/lib/timeFormat";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -174,12 +175,12 @@ function BookingDetailsContent() {
             .eq("dia_semana", dayOfWeek)
             .single();
 
-        // 3. Fetch specific blocks for this day OR recurring blocks for this day of week
+        // 3. Fetch blocks: specific date, specific day-of-week, or all days (both null)
         const { data: blocks } = await supabase
             .from("bloqueos_barberos")
             .select("*")
             .eq("barbero_id", selectedBarber)
-            .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek}`);
+            .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`);
 
         setExistingAppointments(apts || []);
         generateTimeSlots(apts || [], schedule, blocks || []);
@@ -218,12 +219,6 @@ function BookingDetailsContent() {
 
         // Helper function to check if a time slot is occupied or blocked
         const isSlotOccupied = (timeStr: string) => {
-            // Check if it's lunch hour (1:00 PM - 2:00 PM)
-            const [h, m] = timeStr.split(":").map(Number);
-            if (h === 13 && m >= 0) {
-                return true; // Bloquear todo el horario de 13:00 a 13:45
-            }
-
             // Check if occupied by appointment
             const occupiedByApt = occupied.some(apt => {
                 const start = apt.hora_inicio.substring(0, 5);
@@ -231,7 +226,7 @@ function BookingDetailsContent() {
                 return timeStr >= start && timeStr < end;
             });
 
-            // Check if blocked by barber
+            // Check if blocked by barber (includes custom lunch breaks)
             const blockedByBarber = blocks.some(blk => {
                 const start = blk.hora_inicio.substring(0, 5);
                 const end = blk.hora_fin.substring(0, 5);
@@ -286,8 +281,8 @@ function BookingDetailsContent() {
 
             slots.push({ time, available: !isPast && hasConsecutiveBlocks });
 
-            // Advance 15 mins (changed from 30)
-            current.setMinutes(current.getMinutes() + 15);
+            // Advance 30 mins for client display (internal validation still uses 15-min blocks)
+            current.setMinutes(current.getMinutes() + 30);
         }
 
         setTimeSlots(slots);
@@ -314,6 +309,18 @@ function BookingDetailsContent() {
             alert("Por favor selecciona barbero, fecha y hora.");
             return;
         }
+
+        // Validar nombre y teléfono obligatorios
+        if (!clientName || clientName.trim() === '') {
+            alert("Por favor ingresa tu nombre para continuar con la reserva.");
+            return;
+        }
+
+        if (!clientPhone || clientPhone.trim() === '') {
+            alert("Por favor ingresa tu teléfono para que podamos contactarte sobre tu cita.");
+            return;
+        }
+
         setIsBooking(true);
 
         try {
@@ -566,7 +573,7 @@ function BookingDetailsContent() {
                                             : "bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
                                         }`}
                                 >
-                                    {slot.time}
+                                    {formatTime12Hour(slot.time)}
                                 </button>
                             ))}
                         </div>
@@ -595,6 +602,7 @@ function BookingDetailsContent() {
                                         type="text"
                                         value={clientName}
                                         onChange={(e) => setClientName(e.target.value)}
+                                        required
                                     />
                                 </div>
                             </div>
@@ -608,6 +616,7 @@ function BookingDetailsContent() {
                                         type="tel"
                                         value={clientPhone}
                                         onChange={(e) => setClientPhone(e.target.value)}
+                                        required
                                     />
                                 </div>
                             </div>
@@ -630,7 +639,7 @@ function BookingDetailsContent() {
                             <span className="text-sm font-medium text-neutral-500">Total {totalDuration} min</span>
                             {selectedDate && selectedTime && (
                                 <span className="text-xs text-neutral-400">
-                                    {selectedDate} • {selectedTime}
+                                    {selectedDate} • {formatTime12Hour(selectedTime)}
                                 </span>
                             )}
                         </div>
@@ -640,7 +649,7 @@ function BookingDetailsContent() {
                     </div>
                     <button
                         onClick={handleConfirm}
-                        disabled={isBooking || loading || !selectedTime}
+                        disabled={isBooking || loading || !selectedTime || !clientName.trim() || !clientPhone.trim()}
                         className="w-full bg-primary dark:bg-white text-white dark:text-primary h-14 rounded-xl font-bold text-lg shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50"
                     >
                         <span>{isBooking ? "Confirmando..." : "Finalizar Reserva"}</span>

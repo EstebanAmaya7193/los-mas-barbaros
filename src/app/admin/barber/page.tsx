@@ -6,6 +6,8 @@ import PushPermissionPrompt from "@/components/PushPermissionPrompt";
 
 import { supabase } from "@/lib/supabase";
 
+import { formatTime12Hour } from "@/lib/timeFormat";
+import WhatsAppContactModal from "@/components/WhatsAppContactModal";
 import Link from "next/link";
 
 import { useRouter } from "next/navigation";
@@ -41,6 +43,8 @@ interface Appointment {
     clientes: {
 
         nombre: string;
+
+        telefono: string;
 
     } | null;
 
@@ -248,7 +252,6 @@ const urlBase64ToUint8Array = (base64String: string): BufferSource => {
         outputArray[i] = rawData.charCodeAt(i);
 
     }
-
     return outputArray;
 
 };
@@ -456,6 +459,8 @@ export default function BarberAdmin() {
 
     const [showOptionsModal, setShowOptionsModal] = useState(false);
 
+    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+
     const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -524,7 +529,7 @@ export default function BarberAdmin() {
 
                     id, hora_inicio, hora_fin, estado, monto_total, duracion_minutos,
 
-                    clientes (nombre),
+                    clientes (nombre, telefono),
 
                     servicios (nombre)
 
@@ -957,15 +962,17 @@ export default function BarberAdmin() {
                     </div>
 
 
+
                     <div className="flex items-center gap-2">
-                        {/* Debug Logs Button */}
-                        <Link
+                        {/* Debug Logs Button - DISABLED (notifications working on newer iPhones) */}
+                        {/* Uncomment to enable debug mode */}
+                        {/* <Link
                             href="/admin/debug-logs"
                             className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all active:scale-90"
                             title="Ver Logs de Depuración"
                         >
                             <span className="material-symbols-outlined text-[20px]">bug_report</span>
-                        </Link>
+                        </Link> */}
 
                         {/* Logout Button */}
                         <button
@@ -998,8 +1005,9 @@ export default function BarberAdmin() {
 
 
                 {/* Botón de prueba de notificaciones */}
-
-                {barber && (
+                {/* Test Notification Button - DISABLED (notifications working on newer iPhones) */}
+                {/* Uncomment to enable test button */}
+                {/* barber && (
 
                     <button
 
@@ -1013,7 +1021,7 @@ export default function BarberAdmin() {
 
                     </button>
 
-                )}
+                ) */}
 
 
 
@@ -1067,7 +1075,7 @@ export default function BarberAdmin() {
 
                                         <span className="material-symbols-outlined mr-1 text-lg">schedule</span>
 
-                                        {nextAppointment.hora_inicio.substring(0, 5)}
+                                        {formatTime12Hour(nextAppointment.hora_inicio.substring(0, 5))}
 
                                     </div>
 
@@ -1263,7 +1271,7 @@ export default function BarberAdmin() {
 
                                             <span className="text-sm font-bold text-neutral-900 dark:text-white">
 
-                                                {apt.hora_inicio.substring(0, 5)}
+                                                {formatTime12Hour(apt.hora_inicio.substring(0, 5))}
 
                                             </span>
 
@@ -1295,9 +1303,34 @@ export default function BarberAdmin() {
 
                                             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
 
-                                                {apt.servicios?.nombre} • {apt.duracion_minutos || 30} min
+                                                {apt.servicios?.nombre} • {formatTime12Hour(apt.hora_inicio.substring(0, 5))} • {apt.duracion_minutos || 30} min
 
                                             </p>
+
+                                            {/* Contact Buttons */}
+                                            {apt.clientes?.telefono && (
+                                                <div className="flex gap-1.5 mt-2">
+                                                    <a
+                                                        href={`tel:${apt.clientes.telefono}`}
+                                                        className="flex-1 flex items-center justify-center gap-1 bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 py-1 px-2 rounded-lg text-[9px] font-bold hover:bg-green-100 dark:hover:bg-green-900/20 transition-all active:scale-95"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {/* <span className="material-symbols-outlined text-xs">call</span> */}
+                                                        Llamar
+                                                    </a>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedAppointment(apt);
+                                                            setShowWhatsAppModal(true);
+                                                        }}
+                                                        className="flex-1 flex items-center justify-center gap-1 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 py-1 px-2 rounded-lg text-[9px] font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all active:scale-95"
+                                                    >
+                                                        {/* <span className="material-symbols-outlined text-xs">chat</span> */}
+                                                        WhatsApp
+                                                    </button>
+                                                </div>
+                                            )}
 
                                         </div>
 
@@ -1316,6 +1349,8 @@ export default function BarberAdmin() {
                                             {apt.estado}
 
                                         </div>
+
+
 
 
 
@@ -1602,19 +1637,12 @@ export default function BarberAdmin() {
                                             <h4 className="font-bold text-neutral-900 dark:text-white">
 
                                                 {selectedAppointment.clientes?.nombre || "Walk-in"}
-
                                             </h4>
-
                                             <p className="text-sm text-neutral-500 dark:text-neutral-400">
-
-                                                {selectedAppointment.hora_inicio.substring(0, 5)} • {selectedAppointment.servicios?.nombre}
-
+                                                {formatTime12Hour(selectedAppointment.hora_inicio.substring(0, 5))} • {selectedAppointment.servicios?.nombre}
                                             </p>
-
                                         </div>
-
                                     </div>
-
                                     <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-tighter inline-block ${selectedAppointment.estado === 'COMPLETADA' ? 'bg-green-100 text-green-600' :
 
                                         selectedAppointment.estado === 'CANCELADA' ? 'bg-red-100 text-red-600' :
@@ -1765,7 +1793,20 @@ export default function BarberAdmin() {
 
                 )}
 
-
+                {/* WhatsApp Contact Modal */}
+                {selectedAppointment && (
+                    <WhatsAppContactModal
+                        isOpen={showWhatsAppModal}
+                        onClose={() => {
+                            setShowWhatsAppModal(false);
+                            setSelectedAppointment(null);
+                        }}
+                        clientName={selectedAppointment.clientes?.nombre || "Cliente"}
+                        clientPhone={selectedAppointment.clientes?.telefono || ""}
+                        appointmentDate={today}
+                        appointmentTime={selectedAppointment.hora_inicio}
+                    />
+                )}
 
                 {/* Bottom Navigation */}
 

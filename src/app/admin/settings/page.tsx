@@ -49,7 +49,8 @@ export default function SettingsPage() {
         nombre: "",
         fecha: "",
         hora_inicio: "13:00",
-        hora_fin: "14:00"
+        hora_fin: "14:00",
+        selectedDays: [] as number[] // For recurring blocks
     });
 
     useEffect(() => {
@@ -137,10 +138,11 @@ export default function SettingsPage() {
         e.preventDefault();
         if (!barber) return;
         setSaving(true);
-        
+
         try {
-            // Validar si hay citas existentes en el rango a bloquear
+            // Bloqueo específico de fecha
             if (newBlock.fecha) {
+                // Validar si hay citas existentes en el rango a bloquear
                 const { data: existingAppointments, error: checkError } = await supabase
                     .from("citas")
                     .select("id, hora_inicio, hora_fin")
@@ -159,25 +161,45 @@ export default function SettingsPage() {
                     setShowConflictModal(true);
                     return;
                 }
+
+                // Crear bloqueo específico
+                const { data, error } = await supabase
+                    .from("bloqueos_barberos")
+                    .insert([{
+                        nombre: newBlock.nombre,
+                        barbero_id: barber.id,
+                        hora_inicio: newBlock.hora_inicio + ":00",
+                        hora_fin: newBlock.hora_fin + ":00",
+                        fecha: newBlock.fecha,
+                        dia_semana: null
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                setBlocks(prev => [data, ...prev]);
+            } else {
+                // Bloqueo recurrente: crear UN SOLO registro (fecha=null, dia_semana=null)
+                // Esto significa "aplica a todos los días"
+                const { data, error } = await supabase
+                    .from("bloqueos_barberos")
+                    .insert([{
+                        nombre: newBlock.nombre,
+                        barbero_id: barber.id,
+                        hora_inicio: newBlock.hora_inicio + ":00",
+                        hora_fin: newBlock.hora_fin + ":00",
+                        fecha: null,
+                        dia_semana: null // null = aplica a todos los días
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                setBlocks(prev => [data, ...prev]);
             }
 
-            // Si no hay citas, proceder con el bloqueo
-            const { data, error } = await supabase
-                .from("bloqueos_barberos")
-                .insert([{
-                    ...newBlock,
-                    barbero_id: barber.id,
-                    hora_inicio: newBlock.hora_inicio + ":00",
-                    hora_fin: newBlock.hora_fin + ":00",
-                    fecha: newBlock.fecha || null
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
-            setBlocks(prev => [data, ...prev]);
             setShowBlockModal(false);
-            setNewBlock({ nombre: "", fecha: "", hora_inicio: "13:00", hora_fin: "14:00" });
+            setNewBlock({ nombre: "", fecha: "", hora_inicio: "13:00", hora_fin: "14:00", selectedDays: [] });
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : "Error desconocido";
             alert("Error: " + errorMessage);
@@ -347,14 +369,47 @@ export default function SettingsPage() {
                                     className="liquid-input h-12 rounded-xl w-full px-4 text-sm font-medium focus:ring-0 focus:outline-none"
                                 />
                             </div>
-                            <div className="space-y-1">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Fecha (Opcional)</label>
-                                <input
-                                    type="date"
-                                    value={newBlock.fecha}
-                                    onChange={e => setNewBlock({ ...newBlock, fecha: e.target.value })}
-                                    className="liquid-input h-12 rounded-xl w-full px-4 text-sm font-medium focus:ring-0 focus:outline-none"
-                                />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Tipo de Bloqueo</label>
+                                <div className="flex flex-col gap-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="blockType"
+                                            checked={!newBlock.fecha}
+                                            onChange={() => setNewBlock({ ...newBlock, fecha: "" })}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-sm font-medium">Recurrente (todos los días activos)</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="blockType"
+                                            checked={!!newBlock.fecha}
+                                            onChange={() => {
+                                                const today = new Date();
+                                                const dateStr = today.toISOString().split('T')[0];
+                                                setNewBlock({ ...newBlock, fecha: dateStr });
+                                            }}
+                                            className="w-4 h-4"
+                                        />
+                                        <span className="text-sm font-medium">Fecha específica</span>
+                                    </label>
+                                </div>
+                                {newBlock.fecha && (
+                                    <input
+                                        type="date"
+                                        value={newBlock.fecha}
+                                        onChange={e => setNewBlock({ ...newBlock, fecha: e.target.value })}
+                                        className="liquid-input h-12 rounded-xl w-full px-4 text-sm font-medium focus:ring-0 focus:outline-none mt-2"
+                                    />
+                                )}
+                                {!newBlock.fecha && (
+                                    <p className="text-xs text-gray-500 italic mt-1">
+                                        Se aplicará a todos los días habilitados en tu semana laboral
+                                    </p>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div className="space-y-1">
@@ -398,7 +453,7 @@ export default function SettingsPage() {
                     </div>
                 </div>
             )}
-            
+
             {/* Bottom Navigation */}
             <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-2 pt-2 px-4 pointer-events-none">
                 <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl">
@@ -432,9 +487,9 @@ export default function SettingsPage() {
                         <div className="flex items-center justify-center w-16 h-16 rounded-full bg-red-100 mb-6 mx-auto">
                             <span className="material-symbols-outlined text-red-600 text-[32px]">event_busy</span>
                         </div>
-                        
+
                         <h3 className="text-xl font-bold text-center mb-4">Conflicto de Horario</h3>
-                        
+
                         <div className="text-center mb-6">
                             <div className="text-3xl font-bold text-red-600 mb-2">{conflictData.count}</div>
                             <p className="text-sm text-gray-600 leading-relaxed">
@@ -449,7 +504,7 @@ export default function SettingsPage() {
                             >
                                 Entendido
                             </button>
-                            
+
                             <button
                                 onClick={() => {
                                     setShowConflictModal(false);
