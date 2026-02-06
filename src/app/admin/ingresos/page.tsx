@@ -13,8 +13,12 @@ interface Transaction {
     estado: string;
     clientes: {
         nombre: string;
+    } | {
+        nombre: string;
     }[];
     servicios: {
+        nombre: string;
+    } | {
         nombre: string;
     }[];
 }
@@ -65,11 +69,11 @@ export default function ControlIngresos() {
                 const selectedDateObj = new Date(selectedDate + "T00:00:00");
                 const selectedMonth = selectedDateObj.toISOString().slice(0, 7);
                 const startOfMonth = `${selectedMonth}-01`;
-                
+
                 // Calcular el último día real del mes
                 const lastDayOfMonth = new Date(selectedDateObj.getFullYear(), selectedDateObj.getMonth() + 1, 0).getDate();
                 const endOfMonth = `${selectedMonth}-${lastDayOfMonth.toString().padStart(2, '0')}`;
-                
+
                 const { data: monthData } = await supabase
                     .from("citas")
                     .select("monto_total, fecha")
@@ -80,25 +84,25 @@ export default function ControlIngresos() {
                 // Fetch weekly data - dinámico basado en la fecha seleccionada
                 const weeklyTotals = [];
                 const selectedDateForWeek = new Date(selectedDate + "T00:00:00");
-                
+
                 // Calcular el inicio de la semana (lunes) de la fecha seleccionada
                 const dayOfWeek = selectedDateForWeek.getDay();
                 const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Si es domingo (0), ir 6 días atrás; si no, ir al lunes
                 const monday = new Date(selectedDateForWeek);
                 monday.setDate(selectedDateForWeek.getDate() + mondayOffset);
-                
+
                 // Obtener datos de los 7 días de la semana (lunes a domingo)
                 for (let i = 0; i < 7; i++) {
                     const weekDate = new Date(monday);
                     weekDate.setDate(monday.getDate() + i);
                     const dateStr = weekDate.toLocaleDateString("en-CA");
-                    
+
                     const { data: dayData } = await supabase
                         .from("citas")
                         .select("monto_total")
                         .eq("fecha", dateStr)
                         .in("estado", ["COMPLETADA", "EN_ATENCION"]);
-                    
+
                     const dayTotal = dayData?.reduce((sum, cita) => sum + Number(cita.monto_total), 0) || 0;
                     weeklyTotals.push(dayTotal);
                 }
@@ -107,37 +111,37 @@ export default function ControlIngresos() {
                 const monthWeeklyTotals = [];
                 const selectedDateForMonth = new Date(selectedDate + "T00:00:00");
                 const currentMonth = selectedDateForMonth.toISOString().slice(0, 7);
-                
+
                 // Get 4 weeks of the selected month
                 for (let week = 0; week < 4; week++) {
                     const weekStartDate = new Date(selectedDateForMonth);
                     weekStartDate.setDate(1 + (week * 7)); // Start of each week
-                    
+
                     let weekTotal = 0;
-                    
+
                     // Para la última semana, incluir todos los días restantes del mes
                     const lastDayOfMonth = new Date(selectedDateForMonth.getFullYear(), selectedDateForMonth.getMonth() + 1, 0);
                     const daysInMonth = lastDayOfMonth.getDate();
                     const daysInWeek = week === 3 ? daysInMonth - (week * 7) : 7; // Última semana puede tener más días
-                    
+
                     for (let day = 0; day < daysInWeek; day++) {
                         const currentDay = new Date(weekStartDate);
                         currentDay.setDate(weekStartDate.getDate() + day);
-                        
+
                         // Skip if we go to next month
                         if (currentDay.toISOString().slice(0, 7) !== currentMonth) {
                             break;
                         }
-                        
+
                         const dateStr = currentDay.toLocaleDateString("en-CA");
                         const dayData = monthData?.filter(cita => cita.fecha === dateStr) || [];
                         const dayTotal = dayData?.reduce((sum: number, cita: { fecha: string; monto_total: number }) => sum + Number(cita.monto_total), 0) || 0;
                         weekTotal += dayTotal;
                     }
-                    
+
                     monthWeeklyTotals.push(weekTotal);
                 }
-                
+
                 setMonthlyTotals(monthWeeklyTotals);
 
                 // Fetch service statistics - dinámico basado en el mes seleccionado
@@ -169,7 +173,7 @@ export default function ControlIngresos() {
                             total_ingresos: 0,
                             cantidad_servicios: 0
                         };
-                        
+
                         existing.total_ingresos += Number(item.monto_total);
                         existing.cantidad_servicios += 1;
                         serviceMap.set(serviceName, existing);
@@ -184,10 +188,10 @@ export default function ControlIngresos() {
                 if (sortedServices) setServiceStats(sortedServices);
                 setWeeklyData(weeklyTotals);
                 setMonthlyTotals(monthWeeklyTotals);
-                
+
                 const dayTotal = todayData?.reduce((sum, t) => sum + Number(t.monto_total), 0) || 0;
                 const monthTotal = monthData?.reduce((sum, t) => sum + Number(t.monto_total), 0) || 0;
-                
+
                 setDailyTotal(dayTotal);
                 setMonthlyTotal(monthTotal);
             } catch (error) {
@@ -207,10 +211,10 @@ export default function ControlIngresos() {
     };
 
     const formatCOP = (value: number) => {
-        return new Intl.NumberFormat('es-CO', { 
-            style: 'currency', 
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
             currency: 'COP',
-            maximumFractionDigits: 0 
+            maximumFractionDigits: 0
         }).format(value);
     };
 
@@ -295,7 +299,7 @@ export default function ControlIngresos() {
                         <span className="material-symbols-outlined text-[28px] font-light text-primary dark:text-white transition-transform group-hover:-translate-x-0.5">arrow_back</span>
                     </Link>
                     <h2 className="text-primary dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center">Control de Ingresos</h2>
-                    <button 
+                    <button
                         onClick={() => setShowCalendar(!showCalendar)}
                         className="flex cursor-pointer items-center justify-center rounded-full size-10 text-primary dark:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                     >
@@ -309,7 +313,7 @@ export default function ControlIngresos() {
                         <div className="glass-panel rounded-2xl p-6 w-full max-w-sm">
                             {/* Calendar Header */}
                             <div className="flex items-center justify-between mb-4">
-                                <button 
+                                <button
                                     onClick={() => handleMonthChange(-1)}
                                     className="flex size-8 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                                 >
@@ -318,7 +322,7 @@ export default function ControlIngresos() {
                                 <h3 className="text-primary dark:text-white text-lg font-bold">
                                     {new Date(selectedDate).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
                                 </h3>
-                                <button 
+                                <button
                                     onClick={() => handleMonthChange(1)}
                                     className="flex size-8 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                                 >
@@ -341,11 +345,10 @@ export default function ControlIngresos() {
                                         {day ? (
                                             <button
                                                 onClick={() => handleDateSelect(day)}
-                                                className={`w-full h-full flex items-center justify-center rounded-lg text-sm font-medium transition-all ${
-                                                    day === new Date(selectedDate).getDate()
-                                                        ? 'bg-primary dark:bg-white text-white dark:text-black'
-                                                        : 'hover:bg-black/5 dark:hover:bg-white/5 text-primary dark:text-white'
-                                                }`}
+                                                className={`w-full h-full flex items-center justify-center rounded-lg text-sm font-medium transition-all ${day === new Date(selectedDate).getDate()
+                                                    ? 'bg-primary dark:bg-white text-white dark:text-black'
+                                                    : 'hover:bg-black/5 dark:hover:bg-white/5 text-primary dark:text-white'
+                                                    }`}
                                             >
                                                 {day}
                                             </button>
@@ -357,7 +360,7 @@ export default function ControlIngresos() {
                             </div>
 
                             {/* Close Button */}
-                            <button 
+                            <button
                                 onClick={() => setShowCalendar(false)}
                                 className="w-full mt-4 py-2 bg-black/5 dark:bg-white/5 rounded-lg text-sm font-medium text-primary dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
                             >
@@ -382,14 +385,14 @@ export default function ControlIngresos() {
                                     <div className="flex items-center gap-2">
                                         <p className="text-gray-500 dark:text-gray-400 text-sm font-semibold uppercase tracking-wider">Total Día</p>
                                         <span className="bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400 text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-[14px]">trending_up</span>
-                                                {isToday && 'Hoy '}
-                                                {` ${formatDateHeader(selectedDate)}`}
+                                            <span className="material-symbols-outlined text-[14px]">trending_up</span>
+                                            {isToday && 'Hoy '}
+                                            {` ${formatDateHeader(selectedDate)}`}
                                         </span>
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <p className="text-primary dark:text-white text-6xl font-black tracking-tighter leading-none">{formatCOP(dailyTotal)}</p>
-                                        
+
                                     </div>
                                 </div>
 
@@ -430,9 +433,9 @@ export default function ControlIngresos() {
                                                         </span>
                                                     )}
                                                     {/* Barra */}
-                                                    <div 
+                                                    <div
                                                         className="w-full bg-primary dark:bg-white rounded-t transition-all duration-500"
-                                                        style={{ 
+                                                        style={{
                                                             height: `${value * 1.5}px`,
                                                             minHeight: value > 0 ? '4px' : '1px',
                                                             backgroundColor: value > 0 ? '' : 'transparent',
@@ -475,9 +478,9 @@ export default function ControlIngresos() {
                                                         </span>
                                                     )}
                                                     {/* Barra */}
-                                                    <div 
+                                                    <div
                                                         className="w-full bg-primary dark:bg-white rounded-t transition-all duration-500"
-                                                        style={{ 
+                                                        style={{
                                                             height: `${value * 1.5}px`,
                                                             minHeight: value > 0 ? '4px' : '1px',
                                                             backgroundColor: value > 0 ? '' : 'transparent',
@@ -541,20 +544,30 @@ export default function ControlIngresos() {
                                 </div>
                                 <div className="flex flex-col gap-3">
                                     {transactions.length > 0 ? (
-                                        transactions.map((transaction) => (
-                                            <div key={transaction.id} className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-800">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
-                                                        <span className="material-symbols-outlined text-gray-600 dark:text-gray-300 text-[20px]">person</span>
+                                        transactions.map((transaction) => {
+                                            const clientName = Array.isArray(transaction.clientes)
+                                                ? transaction.clientes[0]?.nombre
+                                                : (transaction.clientes as any)?.nombre;
+
+                                            const serviceName = Array.isArray(transaction.servicios)
+                                                ? transaction.servicios[0]?.nombre
+                                                : (transaction.servicios as any)?.nombre;
+
+                                            return (
+                                                <div key={transaction.id} className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-800">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="size-10 rounded-full bg-gray-100 dark:bg-white/10 flex items-center justify-center shrink-0">
+                                                            <span className="material-symbols-outlined text-gray-600 dark:text-gray-300 text-[20px]">person</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-primary dark:text-white font-semibold text-base capitalize">{clientName || "Cliente"}</span>
+                                                            <span className="text-gray-400 text-xs font-medium">{transaction.hora_inicio.substring(0, 5)} • {serviceName || "Servicio"}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-primary dark:text-white font-semibold text-base">{transaction.clientes?.[0]?.nombre || "Cliente"}</span>
-                                                        <span className="text-gray-400 text-xs font-medium">{transaction.hora_inicio.substring(0, 5)} • {transaction.servicios?.[0]?.nombre || "Servicio"}</span>
-                                                    </div>
+                                                    <span className="text-primary dark:text-white font-bold text-lg">+{formatCOP(transaction.monto_total)}</span>
                                                 </div>
-                                                <span className="text-primary dark:text-white font-bold text-lg">+{formatCOP(transaction.monto_total)}</span>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     ) : (
                                         <div className="text-center py-8 text-gray-400">
                                             <span className="material-symbols-outlined text-4xl mb-2">receipt_long</span>
