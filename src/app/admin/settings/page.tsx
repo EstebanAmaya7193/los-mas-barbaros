@@ -70,13 +70,15 @@ export default function SettingsPage() {
         if (barberData) {
             setBarber(barberData);
 
-            // Fetch schedules with cache-busting
-            // We use a dummy filter that is always true but makes the query unique URL-wise
+            // Fetch schedules with dynamic cache-busting
+            // We use a non-matching ID filter generated dynamically to ensure a unique URL every request
+            // preventing browser/PWA caching.
+            const uniqueId = crypto.randomUUID();
             const { data: scheds } = await supabase
                 .from("horarios_barberos")
                 .select("*")
                 .eq("barbero_id", barberData.id)
-                .neq("id", "00000000-0000-0000-0000-000000000000") // Static filter
+                .neq("id", uniqueId)
                 .order("dia_semana");
 
             // Normalize schedules to ensure all 7 days exist in state
@@ -146,14 +148,15 @@ export default function SettingsPage() {
         setSaving(true);
         try {
             // Process each schedule
-            for (const schedule of schedules) {
+            const updatedSchedules = [...schedules];
+
+            for (let i = 0; i < updatedSchedules.length; i++) {
+                const schedule = updatedSchedules[i];
                 const isTemp = schedule.id.startsWith('temp-');
 
-                if (isTemp) {
-                    // Start active? If not active and temp, maybe don't insert? 
-                    // Better to insert so it's explicit.
-                    // Only insert if user activated it? No, insert to persist configuration.
+                let resultData = null;
 
+                if (isTemp) {
                     // Insert new schedule
                     const { data, error } = await supabase
                         .from("horarios_barberos")
@@ -168,27 +171,36 @@ export default function SettingsPage() {
                         .single();
 
                     if (error) throw error;
-
-                    // Update local state with real ID to prevent re-insertion
-                    setSchedules(prev => prev.map(s => s.dia_semana === schedule.dia_semana ? data : s));
+                    resultData = data;
                 } else {
-                    // Update existing schedule
-                    const { error } = await supabase
+                    // Update existing schedule and return it
+                    const { data, error } = await supabase
                         .from("horarios_barberos")
                         .update({
                             hora_inicio: schedule.hora_inicio,
                             hora_fin: schedule.hora_fin,
                             activo: schedule.activo,
                         })
-                        .eq("id", schedule.id);
+                        .eq("id", schedule.id)
+                        .select()
+                        .single();
 
                     if (error) throw error;
+                    resultData = data;
+                }
+
+                // Update the object in our local array to match the DB response
+                if (resultData) {
+                    updatedSchedules[i] = resultData;
                 }
             }
 
+            // Batch update state with the authoritative data from DB
+            setSchedules(updatedSchedules);
+
             alert("¡Cambios guardados correctamente! ✨");
-            // Refresh logic to ensure we have latest IDs
-            fetchData();
+            // REMOVED fetchData() to avoid PWA cache race conditions. 
+            // The local state is now in sync with what the server just confirmed.
         } catch (err: unknown) {
             console.error("Error saving settings:", err);
             const errorMessage = err instanceof Error ? err.message : "Error desconocido";
