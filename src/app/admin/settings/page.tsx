@@ -77,7 +77,21 @@ export default function SettingsPage() {
                 .eq("barbero_id", barberData.id)
                 .order("dia_semana");
 
-            if (scheds) setSchedules(scheds);
+            // Normalize schedules to ensure all 7 days exist in state
+            const days = [0, 1, 2, 3, 4, 5, 6];
+            const normalizedSchedules: Schedule[] = days.map(dia => {
+                const existing = scheds?.find(s => s.dia_semana === dia);
+                if (existing) return existing;
+                return {
+                    id: `temp-${dia}`, // Temporary ID for UI handling
+                    dia_semana: dia,
+                    hora_inicio: "09:00:00",
+                    hora_fin: "20:00:00", // Default matching booking fallback roughly
+                    activo: false
+                };
+            });
+
+            setSchedules(normalizedSchedules);
 
             // Fetch blocks
             const { data: blks } = await supabase
@@ -113,24 +127,50 @@ export default function SettingsPage() {
         if (!barber) return;
         setSaving(true);
         try {
-            // Update each schedule individually to ensure RLS policies work
-            const schedulesByDay = new Map(schedules.map((s) => [s.dia_semana, s]));
+            // Process each schedule
+            for (const schedule of schedules) {
+                const isTemp = schedule.id.startsWith('temp-');
 
-            for (const schedule of schedulesByDay.values()) {
-                const { error } = await supabase
-                    .from("horarios_barberos")
-                    .update({
-                        hora_inicio: schedule.hora_inicio,
-                        hora_fin: schedule.hora_fin,
-                        activo: schedule.activo,
-                    })
-                    .eq("barbero_id", barber.id)
-                    .eq("dia_semana", schedule.dia_semana);
+                if (isTemp) {
+                    // Start active? If not active and temp, maybe don't insert? 
+                    // Better to insert so it's explicit.
+                    // Only insert if user activated it? No, insert to persist configuration.
 
-                if (error) throw error;
+                    // Insert new schedule
+                    const { data, error } = await supabase
+                        .from("horarios_barberos")
+                        .insert([{
+                            barbero_id: barber.id,
+                            dia_semana: schedule.dia_semana,
+                            hora_inicio: schedule.hora_inicio,
+                            hora_fin: schedule.hora_fin,
+                            activo: schedule.activo
+                        }])
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    // Update local state with real ID to prevent re-insertion
+                    setSchedules(prev => prev.map(s => s.dia_semana === schedule.dia_semana ? data : s));
+                } else {
+                    // Update existing schedule
+                    const { error } = await supabase
+                        .from("horarios_barberos")
+                        .update({
+                            hora_inicio: schedule.hora_inicio,
+                            hora_fin: schedule.hora_fin,
+                            activo: schedule.activo,
+                        })
+                        .eq("id", schedule.id);
+
+                    if (error) throw error;
+                }
             }
 
             alert("¡Cambios guardados correctamente! ✨");
+            // Refresh logic to ensure we have latest IDs
+            fetchData();
         } catch (err: unknown) {
             console.error("Error saving settings:", err);
             const errorMessage = err instanceof Error ? err.message : "Error desconocido";
