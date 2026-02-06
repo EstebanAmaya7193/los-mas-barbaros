@@ -331,7 +331,14 @@ export default function BarberAdmin() {
             .from("barberos")
             .select("*")
             .eq("user_id", session.user.id)
-            .single();
+            .maybeSingle();
+
+        if (!barberData) {
+            console.error("No linked barber profile found for this user.");
+            // Optional: Set a specific error state to show in UI
+            setLoading(false);
+            return;
+        }
 
         if (barberData) {
             setBarber(barberData);
@@ -539,38 +546,64 @@ export default function BarberAdmin() {
             </div>
 
             <div className="relative flex flex-col min-h-screen w-full max-w-md mx-auto pb-24">
-                <header className="flex items-center p-6 justify-between z-10">
-                    <div className="flex items-center gap-3">
-                        <div className="relative group">
-                            <div className="bg-neutral-200 dark:bg-neutral-800 rounded-full w-10 h-10 shadow-sm border-2 border-white flex items-center justify-center overflow-hidden">
-                                <img src="/assets/barberos/barbero1.jpg" className="w-full h-full object-cover" alt="Foto de perfil del barbero" />
-                            </div>
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                {/* Error State: Authenticated but no Barber Profile */}
+                {!loading && !barber && (
+                    <div className="p-6 flex flex-col items-center justify-center min-h-[50vh] text-center px-8">
+                        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                            <span className="material-symbols-outlined text-red-600 text-[32px]">link_off</span>
                         </div>
-                        <div className="flex flex-col">
-                            <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Buenos días</span>
-                            <h2 className="text-xl font-bold leading-none tracking-tight">{barber?.nombre || "Cargando..."}</h2>
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">Perfil No Encontrado</h2>
+                        <p className="text-gray-500 mb-6">
+                            Tu usuario está autenticado pero no tiene un perfil de barbero vinculado o no tienes permisos para verlo.
+                        </p>
+                        <div className="text-xs font-mono bg-gray-100 p-3 rounded-lg text-left w-full mb-6 overflow-hidden">
+                            UID: {supabase.auth.getUser().then(u => u.data.user?.id).catch(() => 'unknown')}
+                            <br />
+                            Revise Policies en Supabase.
                         </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => fetchData()}
-                            className="w-10 h-10 rounded-full bg-white/50 dark:bg-white/5 active:bg-white/80 dark:active:bg-white/10 flex items-center justify-center transition-all hover:bg-white/60 dark:hover:bg-white/10"
-                            title="Actualizar datos"
-                        >
-                            <span className="material-symbols-outlined text-[20px] text-neutral-600 dark:text-neutral-300">refresh</span>
-                        </button>
-
                         <button
                             onClick={handleLogout}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-90"
-                            title="Cerrar Sesión"
+                            className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold text-sm"
                         >
-                            <span className="material-symbols-outlined text-[20px]">logout</span>
+                            Cerrar Sesión
                         </button>
                     </div>
-                </header>
+                )}
+
+                {barber && (
+                    <header className="flex items-center p-6 justify-between z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="relative group">
+                                <div className="bg-neutral-200 dark:bg-neutral-800 rounded-full w-10 h-10 shadow-sm border-2 border-white flex items-center justify-center overflow-hidden">
+                                    <img src="/assets/barberos/barbero1.jpg" className="w-full h-full object-cover" alt="Foto de perfil del barbero" />
+                                </div>
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-xs text-neutral-500 font-medium uppercase tracking-wider">Buenos días</span>
+                                <h2 className="text-xl font-bold leading-none tracking-tight">{barber?.nombre || "Cargando..."}</h2>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => fetchData()}
+                                className="w-10 h-10 rounded-full bg-white/50 dark:bg-white/5 active:bg-white/80 dark:active:bg-white/10 flex items-center justify-center transition-all hover:bg-white/60 dark:hover:bg-white/10"
+                                title="Actualizar datos"
+                            >
+                                <span className="material-symbols-outlined text-[20px] text-neutral-600 dark:text-neutral-300">refresh</span>
+                            </button>
+
+                            <button
+                                onClick={handleLogout}
+                                className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-90"
+                                title="Cerrar Sesión"
+                            >
+                                <span className="material-symbols-outlined text-[20px]">logout</span>
+                            </button>
+                        </div>
+                    </header>
+                )}
 
                 {/* Push Permission Prompt */}
                 {showNotificationPrompt && barber && (

@@ -81,7 +81,7 @@ export default function DetailedAgenda() {
     // Fetch Barbers
     useEffect(() => {
         async function fetchBarbers() {
-            const { data } = await supabase.from("barberos").select("*").order("nombre");
+            const { data } = await supabase.from("barberos").select("*").eq("activo", true).order("nombre");
             if (data) {
                 setBarbers(data);
                 if (data.length > 0) setSelectedBarberId(data[0].id);

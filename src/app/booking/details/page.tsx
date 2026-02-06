@@ -141,7 +141,7 @@ function BookingDetailsContent() {
     useEffect(() => {
         async function fetchMasterData() {
             const [barbersRes, servicesRes] = await Promise.all([
-                supabase.from("barberos").select("*").order("nombre"),
+                supabase.from("barberos").select("*").eq("activo", true).order("nombre"),
                 supabase.from("servicios").select("id, nombre, precio, duracion_minutos").in("id", serviceIds)
             ]);
 

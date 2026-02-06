@@ -67,6 +67,16 @@ export default function SettingsPage() {
                 .eq("user_id", session.user.id)
                 .single();
 
+            // If barberData is missing, it might be because the link isn't established yet.
+            // We should still allow loading the page if we want them to Use TeamAccessManagement,
+            // BUT currently the page logic assumes 'barber' exists for editing schedule.
+            // However, the USER (Admin) needs to see this page to Link OTHERS.
+            // If the current user is NOT linked, they probably can't edit their own schedule yet.
+            // But if they are the Admin (which presumably they are if they see this), they assume they can edit.
+
+            // For now, if no barberData found for CURRENT user, we might be in trouble unless we handle it.
+            // But the user reported THEY can login. The error is for the OTHER barber.
+
             if (barberData) {
                 setBarber(barberData);
 
@@ -142,9 +152,8 @@ export default function SettingsPage() {
         setSaving(true);
 
         try {
-            // Bloqueo específico de fecha
             if (newBlock.fecha) {
-                // Validar si hay citas existentes en el rango a bloquear
+                // Check for existing appointments
                 const { data: existingAppointments, error: checkError } = await supabase
                     .from("citas")
                     .select("id, hora_inicio, hora_fin")
@@ -164,7 +173,6 @@ export default function SettingsPage() {
                     return;
                 }
 
-                // Crear bloqueo específico
                 const { data, error } = await supabase
                     .from("bloqueos_barberos")
                     .insert([{
@@ -181,8 +189,6 @@ export default function SettingsPage() {
                 if (error) throw error;
                 setBlocks(prev => [data, ...prev]);
             } else {
-                // Bloqueo recurrente: crear UN SOLO registro (fecha=null, dia_semana=null)
-                // Esto significa "aplica a todos los días"
                 const { data, error } = await supabase
                     .from("bloqueos_barberos")
                     .insert([{
@@ -191,7 +197,7 @@ export default function SettingsPage() {
                         hora_inicio: newBlock.hora_inicio + ":00",
                         hora_fin: newBlock.hora_fin + ":00",
                         fecha: null,
-                        dia_semana: null // null = aplica a todos los días
+                        dia_semana: null
                     }])
                     .select()
                     .single();
@@ -236,10 +242,10 @@ export default function SettingsPage() {
 
             {/* Scrollable Main Content */}
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32">
-                <div className="p-5 flex flex-col gap-6 max-w-lg mx-auto w-full">
+                <div className="p-5 flex flex-col gap-6 max-w-lg mx-auto w-full lg:max-w-4xl lg:grid lg:grid-cols-2 lg:gap-8">
 
-                    {/* Section: Semana Laboral */}
-                    <div>
+                    {/* Left Column (Desktop): Schedule */}
+                    <div className="lg:col-span-1">
                         <h2 className="text-xl font-extrabold tracking-tight mb-4 px-1">Semana Laboral</h2>
                         <div className="flex flex-col gap-3">
                             {[1, 2, 3, 4, 5, 6, 0].map((dia) => {
@@ -293,66 +299,72 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    {/* Divider */}
-                    <div className="h-px bg-gray-200 w-full"></div>
+                    <div className="h-px bg-gray-200 w-full lg:hidden"></div>
 
-                    {/* Section: Pausas y Bloqueos */}
-                    <div>
-                        <div className="flex items-center justify-between mb-4 px-1">
-                            <h2 className="text-xl font-extrabold tracking-tight">Bloquear Horario</h2>
-                            <button
-                                onClick={() => setShowBlockModal(true)}
-                                className="flex items-center justify-center size-8 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                            >
-                                <span className="material-symbols-outlined text-black" style={{ fontSize: '20px' }}>add</span>
-                            </button>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            {blocks.length === 0 ? (
-                                <p className="text-center py-4 text-sm text-gray-400 italic">No tienes bloques configurados</p>
-                            ) : (
-                                blocks.map((block) => (
-                                    <div key={block.id} className="liquid-card rounded-xl p-4 flex items-center justify-between">
-                                        <div className="flex flex-col gap-0.5">
-                                            <span className="text-sm font-bold text-gray-900">{block.nombre}</span>
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                                <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
-                                                    {block.fecha ? 'event' : 'schedule'}
-                                                </span>
-                                                <span>
-                                                    {block.fecha ? `${block.fecha}, ` : ''}
-                                                    {block.hora_inicio.substring(0, 5)} - {block.hora_fin.substring(0, 5)}
-                                                </span>
+                    {/* Right Column (Desktop): Blocks & Footer Actions */}
+                    <div className="lg:col-span-1 flex flex-col gap-8">
+                        {/* Section: Pausas y Bloqueos */}
+                        <div>
+                            <div className="flex items-center justify-between mb-4 px-1">
+                                <h2 className="text-xl font-extrabold tracking-tight">Bloquear Horario</h2>
+                                <button
+                                    onClick={() => setShowBlockModal(true)}
+                                    className="flex items-center justify-center size-8 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                                >
+                                    <span className="material-symbols-outlined text-black" style={{ fontSize: '20px' }}>add</span>
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-3">
+                                {blocks.length === 0 ? (
+                                    <p className="text-center py-4 text-sm text-gray-400 italic">No tienes bloques configurados</p>
+                                ) : (
+                                    blocks.map((block) => (
+                                        <div key={block.id} className="liquid-card rounded-xl p-4 flex items-center justify-between">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-sm font-bold text-gray-900">{block.nombre}</span>
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>
+                                                        {block.fecha ? 'event' : 'schedule'}
+                                                    </span>
+                                                    <span>
+                                                        {block.fecha ? `${block.fecha}, ` : ''}
+                                                        {block.hora_inicio.substring(0, 5)} - {block.hora_fin.substring(0, 5)}
+                                                    </span>
+                                                </div>
                                             </div>
+                                            <button
+                                                onClick={() => handleDeleteBlock(block.id)}
+                                                className="text-gray-400 hover:text-red-500 transition-colors p-2"
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>delete</span>
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={() => handleDeleteBlock(block.id)}
-                                            className="text-gray-400 hover:text-red-500 transition-colors p-2"
-                                        >
-                                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>delete</span>
-                                        </button>
-                                    </div>
-                                ))
-                            )}
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Save Button */}
+                        <div className="flex justify-end pt-2">
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="w-full bg-black dark:bg-white text-white dark:text-black px-8 py-4 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg"
+                            >
+                                {saving ? "Guardando..." : "Guardar Cambios"}
+                            </button>
                         </div>
                     </div>
 
-                    <div className="h-10"></div>
                 </div>
-            </main>
 
-            {/* Sticky Footer */}
-            <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-white/50 p-5 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-                <div className="max-w-lg mx-auto w-full">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="w-full bg-primary text-white font-bold text-base h-14 rounded-full shadow-lg shadow-black/20 hover:shadow-black/30 hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                        <span>{saving ? "Guardando..." : "Guardar Cambios"}</span>
-                    </button>
+                {/* Team Access Management Section */}
+                <div className="max-w-lg mx-auto lg:max-w-4xl w-full px-5 mt-8">
+                    <TeamAccessManagement />
                 </div>
-            </footer>
+
+                <div className="h-10"></div>
+            </main>
 
             {/* Block Modal */}
             {showBlockModal && (
@@ -521,5 +533,105 @@ export default function SettingsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+// Subcomponent for managing barber access
+function TeamAccessManagement() {
+    const [allBarbers, setAllBarbers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [savingId, setSavingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetchAllBarbers();
+    }, []);
+
+    async function fetchAllBarbers() {
+        setLoading(true);
+        // We fetch ALL barbers to allow linking
+        const { data } = await supabase.from("barberos").select("*").order("nombre");
+        if (data) setAllBarbers(data);
+        setLoading(false);
+    }
+
+    async function handleUpdateUserId(barberId: string, newUserId: string) {
+        setSavingId(barberId);
+        const { error } = await supabase
+            .from("barberos")
+            .update({ user_id: newUserId || null })
+            .eq("id", barberId);
+
+        if (error) {
+            alert("Error al vincular: " + error.message);
+        } else {
+            await fetchAllBarbers();
+            alert("✅ Vinculación exitosa");
+        }
+        setSavingId(null);
+    }
+
+    if (loading) return null;
+
+    return (
+        <section className="glass-panel p-6 rounded-[32px] bg-white border border-gray-200 shadow-sm">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">shield_person</span>
+                Gestión de Acceso del Equipo
+            </h3>
+            <p className="text-neutral-500 mb-6 text-sm">
+                Vincula los usuarios de Supabase con los perfiles de barbero para permitirles el acceso.
+                <br />
+                1. Crea el usuario en Supabase Auth. 2. Copia su <strong>User UID</strong>. 3. Pégalo aquí.
+            </p>
+
+            <div className="grid gap-4">
+                {allBarbers.map((b) => (
+                    <div key={b.id} className="flex flex-col md:flex-row items-center gap-4 bg-gray-50 dark:bg-black/5 p-4 rounded-2xl border border-neutral-100 dark:border-neutral-800">
+                        <div className="flex items-center gap-3 w-full md:w-1/3">
+                            <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center font-bold text-neutral-500">
+                                {b.nombre.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                                <p className="font-bold">{b.nombre}</p>
+                                <p className="text-xs text-neutral-400">{b.email}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 w-full relative">
+                            <label className="text-[10px] font-bold uppercase text-neutral-400 absolute -top-2 left-2 bg-white px-1">
+                                Supabase User UID
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Pegar UUID aquí"
+                                defaultValue={b.user_id || ''}
+                                className="w-full h-10 rounded-lg bg-white border border-neutral-200 px-3 text-sm font-mono"
+                                onBlur={(e) => {
+                                    if (e.target.value !== (b.user_id || '')) {
+                                        handleUpdateUserId(b.id, e.target.value);
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        <div className="w-full md:w-auto flex justify-end">
+                            {savingId === b.id ? (
+                                <span className="text-xs font-bold text-primary animate-pulse">Guardando...</span>
+                            ) : b.user_id ? (
+                                <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                                    <span className="material-symbols-outlined text-[14px]">link</span>
+                                    Vinculado
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-xs font-bold text-neutral-400 bg-neutral-100 px-3 py-1 rounded-full">
+                                    <span className="material-symbols-outlined text-[14px]">link_off</span>
+                                    Sin Acceso
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
     );
 }
