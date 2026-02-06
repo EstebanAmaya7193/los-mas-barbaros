@@ -7,6 +7,7 @@ import WhatsAppContactModal from "@/components/WhatsAppContactModal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface BarberStats {
     totalCuts: number;
@@ -246,6 +247,11 @@ export default function BarberAdmin() {
             }
         }
     }, [barber, notificationPromptShown]);
+
+    // Auto-refresh data when app gains focus
+    useAutoRefresh(() => {
+        fetchData();
+    }, []);
 
     // Manejar aceptación del prompt
     const handleNotificationAccept = async () => {

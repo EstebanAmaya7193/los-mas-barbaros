@@ -3,7 +3,8 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Barber {
     id: string;
@@ -53,55 +54,48 @@ export default function SettingsPage() {
         selectedDays: [] as number[] // For recurring blocks
     });
 
-    useEffect(() => {
-        async function fetchData() {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push("/login");
-                return;
-            }
-
-            const { data: barberData } = await supabase
-                .from("barberos")
-                .select("*")
-                .eq("user_id", session.user.id)
-                .single();
-
-            // If barberData is missing, it might be because the link isn't established yet.
-            // We should still allow loading the page if we want them to Use TeamAccessManagement,
-            // BUT currently the page logic assumes 'barber' exists for editing schedule.
-            // However, the USER (Admin) needs to see this page to Link OTHERS.
-            // If the current user is NOT linked, they probably can't edit their own schedule yet.
-            // But if they are the Admin (which presumably they are if they see this), they assume they can edit.
-
-            // For now, if no barberData found for CURRENT user, we might be in trouble unless we handle it.
-            // But the user reported THEY can login. The error is for the OTHER barber.
-
-            if (barberData) {
-                setBarber(barberData);
-
-                // Fetch schedules
-                const { data: scheds } = await supabase
-                    .from("horarios_barberos")
-                    .select("*")
-                    .eq("barbero_id", barberData.id)
-                    .order("dia_semana");
-
-                if (scheds) setSchedules(scheds);
-
-                // Fetch blocks
-                const { data: blks } = await supabase
-                    .from("bloqueos_barberos")
-                    .select("*")
-                    .eq("barbero_id", barberData.id)
-                    .order("created_at", { ascending: false });
-
-                if (blks) setBlocks(blks);
-            }
-            setLoading(false);
+    const fetchData = React.useCallback(async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            router.push("/login");
+            return;
         }
-        fetchData();
+
+        const { data: barberData } = await supabase
+            .from("barberos")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .single();
+
+        if (barberData) {
+            setBarber(barberData);
+
+            // Fetch schedules
+            const { data: scheds } = await supabase
+                .from("horarios_barberos")
+                .select("*")
+                .eq("barbero_id", barberData.id)
+                .order("dia_semana");
+
+            if (scheds) setSchedules(scheds);
+
+            // Fetch blocks
+            const { data: blks } = await supabase
+                .from("bloqueos_barberos")
+                .select("*")
+                .eq("barbero_id", barberData.id)
+                .order("created_at", { ascending: false });
+
+            if (blks) setBlocks(blks);
+        }
+        setLoading(false);
     }, [router]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    useAutoRefresh(fetchData);
 
     const handleToggleDay = (dia: number) => {
         setSchedules(prev => prev.map(s =>
@@ -242,10 +236,10 @@ export default function SettingsPage() {
 
             {/* Scrollable Main Content */}
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32">
-                <div className="p-5 flex flex-col gap-6 max-w-lg mx-auto w-full lg:max-w-4xl lg:grid lg:grid-cols-2 lg:gap-8">
+                <div className="p-5 flex flex-col gap-6 max-w-lg mx-auto w-full md:max-w-4xl md:grid md:grid-cols-2 md:gap-8">
 
                     {/* Left Column (Desktop): Schedule */}
-                    <div className="lg:col-span-1">
+                    <div className="md:col-span-1">
                         <h2 className="text-xl font-extrabold tracking-tight mb-4 px-1">Semana Laboral</h2>
                         <div className="flex flex-col gap-3">
                             {[1, 2, 3, 4, 5, 6, 0].map((dia) => {
@@ -299,10 +293,10 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className="h-px bg-gray-200 w-full lg:hidden"></div>
+                    <div className="h-px bg-gray-200 w-full md:hidden"></div>
 
                     {/* Right Column (Desktop): Blocks & Footer Actions */}
-                    <div className="lg:col-span-1 flex flex-col gap-8">
+                    <div className="md:col-span-1 flex flex-col gap-8">
                         {/* Section: Pausas y Bloqueos */}
                         <div>
                             <div className="flex items-center justify-between mb-4 px-1">
@@ -359,7 +353,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Team Access Management Section */}
-                <div className="max-w-lg mx-auto lg:max-w-4xl w-full px-5 mt-8">
+                <div className="max-w-lg mx-auto md:max-w-4xl w-full px-5 mt-8">
                     <TeamAccessManagement />
                 </div>
 

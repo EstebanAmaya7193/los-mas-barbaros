@@ -3,7 +3,8 @@
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Client {
     id: string;
@@ -37,114 +38,101 @@ export default function ClientsDirectory() {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
-    useEffect(() => {
+    const fetchClients = React.useCallback(async () => {
         let isMounted = true;
+        setLoading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            router.push("/login");
+            return;
+        }
 
-        async function fetchClients() {
-            setLoading(true);
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                router.push("/login");
-                return;
-            }
+        // Fetch clients with their recent appointments
+        const { data, error } = await supabase
+            .from("clientes")
+            .select(`
+                id,
+                nombre,
+                telefono,
+                citas (
+                    fecha,
+                    estado,
+                    hora_inicio
+                )
+            `)
+            .order("nombre");
 
-            // Fetch clients with their recent appointments
-            const { data, error } = await supabase
-                .from("clientes")
-                .select(`
-                    id,
-                    nombre,
-                    telefono,
-                    citas (
-                        fecha,
-                        estado,
-                        hora_inicio
-                    )
-                `)
-                .order("nombre");
+        if (data && isMounted) {
+            const formattedClients = data.map((c: RawClientData) => {
+                const completedCitas = c.citas
+                    .filter((apt) => apt.estado === "COMPLETADA")
+                    .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-            if (data && isMounted) {
-                const formattedClients = data.map((c: RawClientData) => {
-                    // Debug: Log todas las citas del cliente
-                    console.log(`Cliente: ${c.nombre}, Total citas:`, c.citas.length);
-                    c.citas.forEach(apt => {
-                        console.log(`  - Fecha: ${apt.fecha}, Hora: ${apt.hora_inicio}, Estado: ${apt.estado}`);
-                    });
-                    const completedCitas = c.citas
-                        .filter((apt) => apt.estado === "COMPLETADA")
-                        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+                // Get today's date without time for comparison
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
 
-                    // Get today's date without time for comparison
+                const upcomingCitas = c.citas
+                    .filter((apt) => apt.estado === "PROGRAMADA" || apt.estado === "CREADA")
+                    .filter((apt) => {
+                        const aptDate = new Date(apt.fecha + "T00:00:00");
+                        aptDate.setHours(0, 0, 0, 0);
+                        return aptDate >= today;
+                    })
+                    .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+                let lastVisit = "Sin visitas";
+                if (completedCitas.length > 0) {
+                    const latest = new Date(completedCitas[0].fecha + "T00:00:00");
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
 
-                    const upcomingCitas = c.citas
-                        .filter((apt) => apt.estado === "PROGRAMADA" || apt.estado === "CREADA")
-                        .filter((apt) => {
-                            const aptDate = new Date(apt.fecha + "T00:00:00");
-                            aptDate.setHours(0, 0, 0, 0);
-                            return aptDate >= today;
-                        })
-                        .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-
-                    // Debug log
-                    if (upcomingCitas.length > 0) {
-                        console.log('Cliente con cita próxima:', c.nombre, upcomingCitas[0]);
+                    if (latest.getTime() === today.getTime()) {
+                        lastVisit = "Hoy";
+                    } else {
+                        lastVisit = latest.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
                     }
+                }
 
-                    let lastVisit = "Sin visitas";
-                    if (completedCitas.length > 0) {
-                        const latest = new Date(completedCitas[0].fecha + "T00:00:00");
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
+                return {
+                    id: c.id,
+                    nombre: c.nombre,
+                    telefono: c.telefono,
+                    lastVisit,
+                    totalVisits: completedCitas.length,
+                    nextAppointment: upcomingCitas.length > 0 ? {
+                        fecha: upcomingCitas[0].fecha,
+                        hora_inicio: upcomingCitas[0].hora_inicio
+                    } : undefined
+                };
+            });
+            // Deduplicar clientes por nombre + teléfono (mantener el con más visitas)
+            const clientMap = new Map<string, Client>();
+            formattedClients.forEach(client => {
+                const key = `${client.nombre.toLowerCase()}_${client.telefono}`;
+                const existing = clientMap.get(key);
 
-                        if (latest.getTime() === today.getTime()) {
-                            lastVisit = "Hoy";
-                        } else {
-                            lastVisit = latest.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
-                        }
-                    }
+                // Si no existe o el actual tiene más visitas, guardarlo
+                if (!existing || (client.totalVisits || 0) >= (existing.totalVisits || 0)) {
+                    clientMap.set(key, client);
+                }
+            });
 
-                    return {
-                        id: c.id,
-                        nombre: c.nombre,
-                        telefono: c.telefono,
-                        lastVisit,
-                        totalVisits: completedCitas.length,
-                        nextAppointment: upcomingCitas.length > 0 ? {
-                            fecha: upcomingCitas[0].fecha,
-                            hora_inicio: upcomingCitas[0].hora_inicio
-                        } : undefined
-                    };
-                });
-                // Deduplicar clientes por nombre + teléfono (mantener el con más visitas)
-                const clientMap = new Map<string, Client>();
-                formattedClients.forEach(client => {
-                    const key = `${client.nombre.toLowerCase()}_${client.telefono}`;
-                    const existing = clientMap.get(key);
+            // Convertir Map a array y ordenar por nombre
+            const uniqueClients = Array.from(clientMap.values()).sort((a, b) =>
+                a.nombre.localeCompare(b.nombre)
+            );
 
-                    // Si no existe o el actual tiene más visitas, guardarlo
-                    if (!existing || (client.totalVisits || 0) >= (existing.totalVisits || 0)) {
-                        clientMap.set(key, client);
-                    }
-                });
-
-                // Convertir Map a array y ordenar por nombre
-                const uniqueClients = Array.from(clientMap.values()).sort((a, b) =>
-                    a.nombre.localeCompare(b.nombre)
-                );
-
-                setClients(uniqueClients);
-            }
-            if (isMounted) setLoading(false);
+            setClients(uniqueClients);
         }
-
-        fetchClients();
-
-        return () => {
-            isMounted = false;
-        };
+        setLoading(false);
     }, [router]);
+
+    useEffect(() => {
+        fetchClients();
+    }, [fetchClients]);
+
+    useAutoRefresh(fetchClients);
 
     const filteredClients = clients.filter(c =>
         c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -2,7 +2,8 @@
 
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Service {
     id: string;
@@ -24,23 +25,26 @@ export default function ServiceSelection() {
         return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(n);
     };
 
-    useEffect(() => {
-        async function fetchServices() {
-            const { data, error } = await supabase
-                .from("servicios")
-                .select("*")
-                .eq("activo", true)  // Solo servicios activos
-                .order("nombre");
+    const fetchServices = React.useCallback(async () => {
+        const { data, error } = await supabase
+            .from("servicios")
+            .select("*")
+            .eq("activo", true)  // Solo servicios activos
+            .order("nombre");
 
-            if (error) {
-                console.error("Error fetching services:", error);
-            } else {
-                setServices(data || []);
-            }
-            setLoading(false);
+        if (error) {
+            console.error("Error fetching services:", error);
+        } else {
+            setServices(data || []);
         }
-        fetchServices();
+        setLoading(false);
     }, []);
+
+    useEffect(() => {
+        fetchServices();
+    }, [fetchServices]);
+
+    useAutoRefresh(fetchServices);
 
     // Filtrado dinámico con useMemo
     const filteredServices = useMemo(() => {
@@ -89,7 +93,7 @@ export default function ServiceSelection() {
         .reduce((acc, curr) => acc + Number(curr.duracion_minutos), 0);
 
     return (
-        <div className="relative mx-auto flex h-screen w-full max-w-md flex-col overflow-hidden bg-background-light liquid-bg">
+        <div className="relative mx-auto flex h-screen w-full md:max-w-4xl md:px-6 flex-col overflow-hidden bg-background-light liquid-bg">
             {/* Decorative abstract shape for glass effect refraction */}
             <div className="pointer-events-none absolute -right-20 top-20 h-64 w-64 rounded-full bg-gray-100 opacity-60 blur-3xl"></div>
             <div className="pointer-events-none absolute -left-20 top-80 h-96 w-96 rounded-full bg-gray-50 opacity-80 blur-3xl"></div>
@@ -142,7 +146,7 @@ export default function ServiceSelection() {
                         ))}
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
+                    <div className="flex flex-col md:grid md:grid-cols-2 gap-4">
                         {filteredServices.map((service) => (
                             (() => {
                                 const isSelected = selectedServices.includes(service.id);
@@ -194,7 +198,7 @@ export default function ServiceSelection() {
             </main>
 
             {/* Sticky Bottom Action */}
-            <div className="fixed bottom-0 w-full z-30">
+            <div className="fixed bottom-0 w-full md:max-w-4xl z-30">
                 {/* Content */}
                 <div className="relative pb-4 pt-4 px-6">
                     <div className="relative flex items-center justify-between mb-6 px-1">

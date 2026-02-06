@@ -133,7 +133,7 @@ function ConfirmationContent() {
                 <div className="absolute bottom-[10%] left-[-10%] w-[400px] h-[400px] bg-gray-50 dark:bg-white/5 rounded-full blur-[60px] opacity-80"></div>
             </div>
 
-            <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 pb-32 w-full max-w-md mx-auto">
+            <main className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6 pb-32 w-full max-w-md md:max-w-2xl mx-auto">
                 <div className="mb-10 flex flex-col items-center text-center">
                     <div className="relative flex items-center justify-center size-24 mb-6">
                         <div className="absolute inset-0 rounded-full border border-black/5 dark:border-white/10 animate-ping opacity-20"></div>

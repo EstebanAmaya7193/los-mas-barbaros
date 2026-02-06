@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { formatTime12Hour } from "@/lib/timeFormat";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Barber {
     id: string;
@@ -138,27 +139,9 @@ function BookingDetailsContent() {
     }, []);
 
     // 0.5 Auto-refresh on PWA Focus
-    useEffect(() => {
-        const handleFocus = () => {
-            if (document.visibilityState === 'visible' && selectedBarber && selectedDate) {
-                console.log('📱 App resumed/focused - Refreshing availability...');
-                fetchAvailability();
-            }
-        };
 
-        window.addEventListener('focus', handleFocus);
-        document.addEventListener('visibilitychange', handleFocus);
 
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-            document.removeEventListener('visibilitychange', handleFocus);
-        };
-    }, [selectedBarber, selectedDate]);
 
-    const handleManualRefresh = () => {
-        // Simple manual refresh trigger (kept for internal logic if needed, but button removed)
-        fetchAvailability();
-    };
 
     // 1. Fetch Master Data (Barbers & Services)
     useEffect(() => {
@@ -177,55 +160,10 @@ function BookingDetailsContent() {
         if (serviceIds.length > 0) fetchMasterData();
     }, []);
 
-    async function fetchAvailability() {
-        if (!selectedBarber || !selectedDate) return;
-        setLoading(true);
-        // FORCE RESET: Clear previous state to ensure UI reflects new fetch
-        setExistingAppointments([]);
-        setTimeSlots([]);
+    const totalDuration = selectedServiceDetails.reduce((acc, curr) => acc + (curr.duracion_minutos || 30), 0);
+    const totalPrice = selectedServiceDetails.reduce((acc, curr) => acc + Number(curr.precio), 0);
 
-        // 1. Fetch appointments
-        const { data: apts } = await supabase
-            .from("citas")
-            .select("hora_inicio, hora_fin, estado")
-            .eq("barbero_id", selectedBarber)
-            .eq("fecha", selectedDate)
-            // Explicitly filter for blocking statuses (including EN_ATENCION)
-            // This ensures occupied slots are correctly identified even if logic changes
-            .in("estado", ["PROGRAMADA", "EN_ATENCION", "COMPLETADA", "CREADA"]);
-
-        // 2. Fetch specific schedule for this day
-        const dayOfWeek = new Date(selectedDate + 'T12:00:00').getDay();
-        const { data: schedule } = await supabase
-            .from("horarios_barberos")
-            .select("*")
-            .eq("barbero_id", selectedBarber)
-            .eq("dia_semana", dayOfWeek)
-            .single();
-
-        // 3. Fetch blocks: specific date, specific day-of-week, or all days (both null)
-        const { data: blocks } = await supabase
-            .from("bloqueos_barberos")
-            .select("*")
-            .eq("barbero_id", selectedBarber)
-            .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`);
-        // .csv() or similar won't bust cache.
-        // Supabase client handles headers. We can't easily force it here without affecting global client.
-        // But clearing state above helps React render.
-
-        console.log(`🔄 Fetching availability for ${selectedDate} (Barber: ${selectedBarber})`);
-
-        setExistingAppointments(apts || []);
-        generateTimeSlots(apts || [], schedule, blocks || []);
-        setLoading(false);
-    }
-
-    // 2. Fetch occupied slots when selection changes
-    useEffect(() => {
-        fetchAvailability();
-    }, [selectedBarber, selectedDate]);
-
-    const generateTimeSlots = (occupied: Appointment[], schedule: Schedule | null, blocks: Block[]) => {
+    const generateTimeSlots = useCallback((occupied: Appointment[], schedule: Schedule | null, blocks: Block[]) => {
         const slots: TimeSlot[] = [];
 
         // If day is not active, show a message instead of empty slots
@@ -327,10 +265,60 @@ function BookingDetailsContent() {
                 setSelectedTime(null);
             }
         }
-    };
+    }, [totalDuration, selectedDate]);
 
-    const totalDuration = selectedServiceDetails.reduce((acc, curr) => acc + (curr.duracion_minutos || 30), 0);
-    const totalPrice = selectedServiceDetails.reduce((acc, curr) => acc + Number(curr.precio), 0);
+    const fetchAvailability = useCallback(async () => {
+        if (!selectedBarber || !selectedDate) return;
+        setLoading(true);
+        // FORCE RESET: Clear previous state to ensure UI reflects new fetch
+        setExistingAppointments([]);
+        setTimeSlots([]);
+
+        // 1. Fetch appointments
+        const { data: apts } = await supabase
+            .from("citas")
+            .select("hora_inicio, hora_fin, estado")
+            .eq("barbero_id", selectedBarber)
+            .eq("fecha", selectedDate)
+            // Explicitly filter for blocking statuses (including EN_ATENCION)
+            // This ensures occupied slots are correctly identified even if logic changes
+            .in("estado", ["PROGRAMADA", "EN_ATENCION", "COMPLETADA", "CREADA"]);
+
+        // 2. Fetch specific schedule for this day
+        const dayOfWeek = new Date(selectedDate + 'T12:00:00').getDay();
+        const { data: schedule } = await supabase
+            .from("horarios_barberos")
+            .select("*")
+            .eq("barbero_id", selectedBarber)
+            .eq("dia_semana", dayOfWeek)
+            .single();
+
+        // 3. Fetch blocks: specific date, specific day-of-week, or all days (both null)
+        const { data: blocks } = await supabase
+            .from("bloqueos_barberos")
+            .select("*")
+            .eq("barbero_id", selectedBarber)
+            .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`);
+        // .csv() or similar won't bust cache.
+        // Supabase client handles headers. We can't easily force it here without affecting global client.
+        // But clearing state above helps React render.
+
+        console.log(`🔄 Fetching availability for ${selectedDate} (Barber: ${selectedBarber})`);
+
+        setExistingAppointments(apts || []);
+        generateTimeSlots(apts || [], schedule, blocks || []);
+        setLoading(false);
+    }, [selectedBarber, selectedDate, generateTimeSlots]);
+
+
+
+    // 2. Fetch occupied slots when selection changes
+    useEffect(() => {
+        fetchAvailability();
+    }, [fetchAvailability]);
+
+    // 0.5 Auto-refresh on PWA Focus
+    useAutoRefresh(fetchAvailability);
 
     const formatCOP = (value: number) => {
         const n = Math.round(Number(value) || 0);
@@ -531,6 +519,19 @@ function BookingDetailsContent() {
         }
     };
 
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) {
+        return (
+            <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center font-display font-medium text-primary dark:text-white">
+                Cargando detalles...
+            </div>
+        );
+    }
+
     return (
         <div className="bg-background-light dark:bg-background-dark font-display text-primary dark:text-white min-h-screen flex flex-col relative overflow-x-hidden antialiased selection:bg-black selection:text-white">
             <div className="fixed top-20 right-[-50px] w-64 h-64 bg-gray-200 dark:bg-gray-800 rounded-full mix-blend-multiply dark:mix-blend-overlay filter blur-3xl opacity-60 pointer-events-none animate-pulse"></div>
@@ -586,14 +587,6 @@ function BookingDetailsContent() {
                 <div className="flex flex-col w-full mt-2">
                     <div className="flex items-center justify-between px-4 pb-3 pt-2">
                         <h3 className="text-primary dark:text-white text-lg font-bold">Disponibilidad</h3>
-                        <button
-                            onClick={handleManualRefresh}
-                            disabled={loading}
-                            className="p-1.5 text-gray-400 hover:text-primary dark:hover:text-white transition-colors rounded-full active:bg-gray-100 dark:active:bg-white/10"
-                            title="Actualizar horarios"
-                        >
-                            <span className={`material-symbols-outlined text-xl ${loading ? 'animate-spin' : ''}`}>refresh</span>
-                        </button>
                     </div>
                     {loading ? (
                         <div className="grid grid-cols-4 gap-3 px-4 animate-pulse">
