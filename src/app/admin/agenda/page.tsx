@@ -102,6 +102,7 @@ export default function DetailedAgenda() {
         }
 
         const dayOfWeek = new Date(selectedDate + "T12:00:00").getDay();
+        const uniqueId = crypto.randomUUID(); // Dynamic ID for cache busting
 
         const [citasRes, bloqueosRes, scheduleRes] = await Promise.all([
             supabase
@@ -113,17 +114,20 @@ export default function DetailedAgenda() {
                 `)
                 .eq("barbero_id", selectedBarberId)
                 .eq("fecha", selectedDate)
+                .neq("id", uniqueId) // Cache Buster
                 .order("hora_inicio"),
             supabase
                 .from("bloqueos_barberos")
                 .select("*")
                 .eq("barbero_id", selectedBarberId)
-                .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`),
+                .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`)
+                .neq("id", uniqueId), // Cache Buster
             supabase
                 .from("horarios_barberos")
                 .select("*")
                 .eq("barbero_id", selectedBarberId)
                 .eq("dia_semana", dayOfWeek)
+                .neq("id", uniqueId) // Cache Buster
                 .single()
         ]);
 

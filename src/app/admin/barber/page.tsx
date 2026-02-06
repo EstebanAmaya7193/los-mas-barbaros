@@ -349,6 +349,7 @@ export default function BarberAdmin() {
         if (barberData) {
             setBarber(barberData);
 
+            const uniqueId = crypto.randomUUID();
             const { data: apts } = await supabase
                 .from("citas")
                 .select(`
@@ -358,6 +359,7 @@ export default function BarberAdmin() {
                 `)
                 .eq("barbero_id", barberData.id)
                 .eq("fecha", today)
+                .neq("id", uniqueId) // Cache Buster
                 .order("hora_inicio");
 
             if (apts) {

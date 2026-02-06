@@ -53,6 +53,8 @@ export default function ControlIngresos() {
             }
 
             try {
+                const uniqueId = crypto.randomUUID();
+
                 // Fetch today's transactions
                 const { data: todayData } = await supabase
                     .from("citas")
@@ -63,6 +65,7 @@ export default function ControlIngresos() {
                     `)
                     .eq("fecha", selectedDate)
                     .in("estado", ["COMPLETADA", "EN_ATENCION"])
+                    .neq("id", uniqueId) // Cache Buster
                     .order("hora_inicio", { ascending: false });
 
                 // Fetch monthly data - dinámico basado en la fecha seleccionada
@@ -79,6 +82,7 @@ export default function ControlIngresos() {
                     .select("monto_total, fecha")
                     .gte("fecha", startOfMonth)
                     .lte("fecha", endOfMonth)
+                    .neq("id", uniqueId) // Cache Buster
                     .in("estado", ["COMPLETADA", "EN_ATENCION"]);
 
                 // Fetch weekly data - dinámico basado en la fecha seleccionada
