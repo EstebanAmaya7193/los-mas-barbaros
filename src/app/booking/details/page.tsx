@@ -137,6 +137,29 @@ function BookingDetailsContent() {
         }
     }, []);
 
+    // 0.5 Auto-refresh on PWA Focus
+    useEffect(() => {
+        const handleFocus = () => {
+            if (document.visibilityState === 'visible' && selectedBarber && selectedDate) {
+                console.log('📱 App resumed/focused - Refreshing availability...');
+                fetchAvailability();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleFocus);
+
+        return () => {
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleFocus);
+        };
+    }, [selectedBarber, selectedDate]);
+
+    const handleManualRefresh = () => {
+        // Simple manual refresh trigger (kept for internal logic if needed, but button removed)
+        fetchAvailability();
+    };
+
     // 1. Fetch Master Data (Barbers & Services)
     useEffect(() => {
         async function fetchMasterData() {
@@ -157,6 +180,9 @@ function BookingDetailsContent() {
     async function fetchAvailability() {
         if (!selectedBarber || !selectedDate) return;
         setLoading(true);
+        // FORCE RESET: Clear previous state to ensure UI reflects new fetch
+        setExistingAppointments([]);
+        setTimeSlots([]);
 
         // 1. Fetch appointments
         const { data: apts } = await supabase
@@ -183,6 +209,11 @@ function BookingDetailsContent() {
             .select("*")
             .eq("barbero_id", selectedBarber)
             .or(`fecha.eq.${selectedDate},dia_semana.eq.${dayOfWeek},and(fecha.is.null,dia_semana.is.null)`);
+        // .csv() or similar won't bust cache.
+        // Supabase client handles headers. We can't easily force it here without affecting global client.
+        // But clearing state above helps React render.
+
+        console.log(`🔄 Fetching availability for ${selectedDate} (Barber: ${selectedBarber})`);
 
         setExistingAppointments(apts || []);
         generateTimeSlots(apts || [], schedule, blocks || []);
@@ -553,7 +584,17 @@ function BookingDetailsContent() {
 
                 {/* Slots Grid */}
                 <div className="flex flex-col w-full mt-2">
-                    <h3 className="text-primary dark:text-white text-lg font-bold px-4 pb-3 pt-2">Disponibilidad</h3>
+                    <div className="flex items-center justify-between px-4 pb-3 pt-2">
+                        <h3 className="text-primary dark:text-white text-lg font-bold">Disponibilidad</h3>
+                        <button
+                            onClick={handleManualRefresh}
+                            disabled={loading}
+                            className="p-1.5 text-gray-400 hover:text-primary dark:hover:text-white transition-colors rounded-full active:bg-gray-100 dark:active:bg-white/10"
+                            title="Actualizar horarios"
+                        >
+                            <span className={`material-symbols-outlined text-xl ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                        </button>
+                    </div>
                     {loading ? (
                         <div className="grid grid-cols-4 gap-3 px-4 animate-pulse">
                             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
