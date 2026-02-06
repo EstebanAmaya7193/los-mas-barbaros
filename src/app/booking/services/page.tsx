@@ -71,8 +71,12 @@ export default function ServiceSelection() {
     }, [services]);
 
     const toggleService = (id: string) => {
+        // Enforce single selection: if clicked, it replaces the previous one
+        // If clicking the already selected one, we can either deselect or keep it.
+        // Usually for single selection, clicking selected keeps it selected, or toggles off.
+        // Let's implement toggle behavior for the single item.
         setSelectedServices((prev) =>
-            prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+            prev.includes(id) ? [] : [id]
         );
     };
 
@@ -114,13 +118,13 @@ export default function ServiceSelection() {
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`flex h-9 shrink-0 items-center justify-center rounded-full px-5 transition-transform active:scale-95 ${selectedCategory === cat
-                                    ? "bg-black shadow-lg shadow-black/10"
-                                    : "liquid-card"
+                                ? "bg-black shadow-lg shadow-black/10"
+                                : "liquid-card"
                                 }`}
                         >
                             <p className={`text-xs font-medium ${selectedCategory === cat
-                                    ? "text-white font-semibold"
-                                    : "text-primary/70"
+                                ? "text-white font-semibold"
+                                : "text-primary/70"
                                 }`}>
                                 {cat}
                             </p>
@@ -147,8 +151,8 @@ export default function ServiceSelection() {
                                     <label
                                         key={service.id}
                                         className={`group relative flex cursor-pointer items-center gap-4 rounded-2xl p-4 transition-all active:scale-[0.98] ${isSelected
-                                                ? "bg-black text-white shadow-lg shadow-black/10"
-                                                : "liquid-card"
+                                            ? "bg-black text-white shadow-lg shadow-black/10"
+                                            : "liquid-card"
                                             }`}
                                     >
                                         <input
@@ -199,13 +203,11 @@ export default function ServiceSelection() {
 
                         <div className="relative flex flex-col gap-1">
                             <span className="text-sm font-medium text-gray-500">
-                                {selectedServices.length} servicio
-                                {selectedServices.length !== 1 ? "s" : ""} seleccionado
-                                {selectedServices.length !== 1 ? "s" : ""}
+                                {selectedServices.length > 0 ? "1 servicio seleccionado" : "0 servicios seleccionados"}
                             </span>
                             {selectedServices.length > 0 && (
                                 <span className="text-xs text-gray-400">
-                                    {totalDuration} min totales
+                                    {totalDuration} min
                                 </span>
                             )}
                         </div>

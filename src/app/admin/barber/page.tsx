@@ -312,11 +312,14 @@ export default function BarberAdmin() {
     const [selectedServiceId, setSelectedServiceId] = useState("");
     const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
-    // Use local date (YYYY-MM-DD)
+    // Use local date (YYYY-MM-DD) for initial render and other functions
     const today = new Date().toLocaleDateString('en-CA');
 
     async function fetchData() {
         setLoading(true);
+        // Recalculate today to ensure fresh data on every fetch (overrides outer today)
+        const today = new Date().toLocaleDateString('en-CA');
+
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
@@ -551,17 +554,14 @@ export default function BarberAdmin() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* Debug Logs Button - DISABLED (notifications working on newer iPhones) */}
-                        {/* Uncomment to enable debug mode */}
-                        {/* <Link
-                            href="/admin/debug-logs"
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-all active:scale-90"
-                            title="Ver Logs de Depuración"
+                        <button
+                            onClick={() => fetchData()}
+                            className="w-10 h-10 rounded-full bg-white/50 dark:bg-white/5 active:bg-white/80 dark:active:bg-white/10 flex items-center justify-center transition-all hover:bg-white/60 dark:hover:bg-white/10"
+                            title="Actualizar datos"
                         >
-                            <span className="material-symbols-outlined text-[20px]">bug_report</span>
-                        </Link> */}
+                            <span className="material-symbols-outlined text-[20px] text-neutral-600 dark:text-neutral-300">refresh</span>
+                        </button>
 
-                        {/* Logout Button */}
                         <button
                             onClick={handleLogout}
                             className="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-all active:scale-90"

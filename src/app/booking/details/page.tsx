@@ -164,7 +164,9 @@ function BookingDetailsContent() {
             .select("hora_inicio, hora_fin, estado")
             .eq("barbero_id", selectedBarber)
             .eq("fecha", selectedDate)
-            .neq("estado", "CANCELADA");
+            // Explicitly filter for blocking statuses (including EN_ATENCION)
+            // This ensures occupied slots are correctly identified even if logic changes
+            .in("estado", ["PROGRAMADA", "EN_ATENCION", "COMPLETADA", "CREADA"]);
 
         // 2. Fetch specific schedule for this day
         const dayOfWeek = new Date(selectedDate + 'T12:00:00').getDay();
