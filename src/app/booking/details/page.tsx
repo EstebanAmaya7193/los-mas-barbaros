@@ -420,23 +420,32 @@ function BookingDetailsContent() {
                     .single();
 
                 // Preparar payload para notificación push
+                // Format Date & Time for Push
+                const bookingDate = new Date(selectedDate + 'T00:00:00');
+                const formattedDate = bookingDate.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long'
+                });
+
+                const formattedTime = new Date(`${selectedDate}T${selectedTime}`).toLocaleTimeString('es-ES', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
                 const notificationPayload = {
                     title: 'Nueva Cita Agendada',
-                    body: `${clientInfo?.nombre || 'Cliente'} - ${serviceInfo?.nombre || 'Servicio'} - ${timeWithSec.substring(0, 5)}`,
-                    icon: '/assets/logo.jpg',
-                    tag: 'new-appointment',
+                    body: `${clientName} agendó ${selectedServiceDetails[0]?.nombre || 'Servicio'} para el ${formattedDate} a las ${formattedTime}`,
+                    icon: '/icons/icon-192x192.png', // Debe estar en public/icons
+                    badge: '/icons/icon-72x72.png',
+                    tag: 'new-booking', // Tag único para agrupar notificaciones similares
                     data: {
-                        type: 'new_appointment',
-                        appointmentId: bookingData.id,
-                        barberId: selectedBarber,
-                        clientId: clientId,
-                        serviceId: serviceIds[0],
-                        timestamp: new Date().toISOString()
+                        url: '/admin/agenda' // URL para abrir al hacer clic
                     },
-                    requireInteraction: true,
                     actions: [
                         {
-                            action: 'open',
+                            action: 'view',
                             title: 'Ver Panel'
                         },
                         {

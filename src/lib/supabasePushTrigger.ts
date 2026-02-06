@@ -30,7 +30,7 @@ interface BookingData {
 export async function handleNewBooking(bookingId: string): Promise<void> {
     try {
         console.log('🔔 Trigger: Nuevo booking detectado:', bookingId);
-        
+
         // 1. Obtener detalles completos del booking
         const { data: booking, error: bookingError } = await supabase
             .from('citas')
@@ -41,44 +41,56 @@ export async function handleNewBooking(bookingId: string): Promise<void> {
             `)
             .eq('id', bookingId)
             .single();
-            
+
         if (bookingError || !booking) {
             console.error('❌ Error obteniendo booking:', bookingError);
             return;
         }
-        
+
         console.log('📋 Booking details:', booking);
-        
+
         // 2. Obtener el token push del barbero
         const { data: pushTokens, error: tokenError } = await supabase
             .from('barberos_push_tokens')
             .select('push_token')
             .eq('barbero_id', booking.barbero_id)
             .eq('is_active', true);
-            
+
         if (tokenError) {
             console.error('❌ Error obteniendo tokens push:', tokenError);
             return;
         }
-        
+
         if (!pushTokens || pushTokens.length === 0) {
             console.log('⚠️ No hay tokens push activos para el barbero:', booking.barbero_id);
             return;
         }
-        
+
         console.log('📱 Tokens push encontrados:', pushTokens.length);
-        
+
         // 3. Preparar payload de notificación
         const clientName = booking.clientes?.nombre || 'Cliente';
         const serviceName = booking.servicios?.nombre || 'Servicio';
-        const startTime = new Date(booking.hora_inicio).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
+        // Format date and time
+        const dateObj = new Date(booking.hora_inicio + 'T00:00:00'); // Assuming ISO date part if needed, but booking.hora_inicio likely full ISO string.
+        // Actually booking.hora_inicio is usually timestamps in ISO. Let's parse safely.
+        const bookingDate = new Date(booking.hora_inicio);
+
+        const formattedDate = bookingDate.toLocaleDateString('es-ES', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long'
         });
-        
+
+        const formattedTime = bookingDate.toLocaleTimeString('es-ES', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
         const payload = {
             title: '🔔 Nueva Cita Agendada',
-            body: `${clientName} agendó ${serviceName} a las ${startTime}`,
+            body: `${clientName} agendó ${serviceName} para el ${formattedDate} a las ${formattedTime}`,
             icon: '/icons/icon-192x192.png',
             badge: '/icons/icon-72x72.png',
             tag: `booking-${booking.id}`,
@@ -100,7 +112,7 @@ export async function handleNewBooking(bookingId: string): Promise<void> {
                 }
             ]
         };
-        
+
         // 4. Enviar notificación a todos los tokens del barbero
         for (const tokenData of pushTokens) {
             try {
@@ -108,7 +120,7 @@ export async function handleNewBooking(bookingId: string): Promise<void> {
                     tokenData.push_token,
                     payload
                 );
-                
+
                 if (success) {
                     console.log('✅ Notificación enviada exitosamente');
                 } else {
@@ -118,9 +130,9 @@ export async function handleNewBooking(bookingId: string): Promise<void> {
                 console.error('❌ Error en envío individual:', error);
             }
         }
-        
+
         console.log('🎉 Proceso de notificación completado');
-        
+
     } catch (error) {
         console.error('❌ Error general en trigger de booking:', error);
     }
@@ -137,13 +149,13 @@ export async function testNotification(barberId: string): Promise<void> {
         tag: 'test-notification',
         data: { type: 'test' }
     };
-    
+
     const { data: pushTokens } = await supabase
         .from('barberos_push_tokens')
         .select('push_token')
         .eq('barbero_id', barberId)
         .eq('is_active', true);
-    
+
     if (pushTokens && pushTokens.length > 0) {
         await sendPushViaBackend(
             pushTokens[0].push_token,
