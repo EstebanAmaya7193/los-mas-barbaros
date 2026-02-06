@@ -70,11 +70,13 @@ export default function SettingsPage() {
         if (barberData) {
             setBarber(barberData);
 
-            // Fetch schedules
+            // Fetch schedules with cache-busting
+            // We use a dummy filter that is always true but makes the query unique URL-wise
             const { data: scheds } = await supabase
                 .from("horarios_barberos")
                 .select("*")
                 .eq("barbero_id", barberData.id)
+                .neq("id", "00000000-0000-0000-0000-000000000000") // Static filter
                 .order("dia_semana");
 
             // Normalize schedules to ensure all 7 days exist in state
@@ -107,6 +109,22 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchData();
+
+        // Subscribe to changes to ensure fresh data
+        const channel = supabase
+            .channel('settings_changes')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'horarios_barberos' },
+                (payload) => {
+                    console.log('Realtime update received:', payload);
+                    fetchData();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [fetchData]);
 
     useAutoRefresh(fetchData);
