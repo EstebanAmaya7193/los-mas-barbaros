@@ -51,9 +51,9 @@ export default function WhatsAppContactModal({
                 if (appointmentDate && appointmentTime) {
                     const fecha = formatDate(appointmentDate);
                     const hora = formatTime(appointmentTime);
-                    return `Hola ${clientName},\n\nTe recordamos tu cita programada para el ${fecha} a las ${hora}.\n\nTe esperamos en Los Más Bárbaros.`;
+                    return `Hola ${clientName} ✂️\n\nTe recordamos tu cita programada para el ${fecha} a las ${hora}.\n\nTe esperamos en Los Más Bárbaros 💈`;
                 } else {
-                    return `Hola ${clientName},\n\nTe recordamos tu próxima cita.\n\nTe esperamos en Los Más Bárbaros.`;
+                    return `Hola ${clientName} ✂️\n\nTe recordamos tu próxima cita.\n\nTe esperamos en Los Más Bárbaros 💈`;
                 }
             case 'confirm':
                 if (appointmentDate && appointmentTime) {

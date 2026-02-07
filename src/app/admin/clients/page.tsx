@@ -177,9 +177,9 @@ export default function ClientsDirectory() {
                 if (selectedClient.nextAppointment) {
                     const fecha = formatDate(selectedClient.nextAppointment.fecha);
                     const hora = formatTime(selectedClient.nextAppointment.hora_inicio);
-                    return `Hola ${selectedClient.nombre},\n\nTe recordamos tu cita programada para el ${fecha} a las ${hora}.\n\nTe esperamos en Los Más Bárbaros.`;
+                    return `Hola ${selectedClient.nombre} ✂️\n\nTe recordamos tu cita programada para el ${fecha} a las ${hora}.\n\nTe esperamos en Los Más Bárbaros 💈`;
                 } else {
-                    return `Hola ${selectedClient.nombre},\n\nTe recordamos tu próxima cita.\n\nTe esperamos en Los Más Bárbaros.`;
+                    return `Hola ${selectedClient.nombre} ✂️\n\nTe recordamos tu próxima cita.\n\nTe esperamos en Los Más Bárbaros 💈`;
                 }
             case 'confirm':
                 if (selectedClient.nextAppointment) {
