@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import SystemModal from "@/components/SystemModal";
+import WhatsAppContactModal from "@/components/WhatsAppContactModal";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Client {
@@ -37,6 +39,22 @@ export default function ClientsDirectory() {
     const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+    // System Modal State
+    const [systemModal, setSystemModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'alert' as 'alert' | 'confirm',
+        variant: 'info' as 'info' | 'success' | 'warning' | 'danger',
+        onConfirm: undefined as (() => void) | undefined,
+        confirmText: 'Aceptar',
+        cancelText: 'Cancelar'
+    });
+
+    const closeSystemModal = () => {
+        setSystemModal(prev => ({ ...prev, isOpen: false }));
+    };
 
     const fetchClients = React.useCallback(async () => {
         let isMounted = true;
@@ -202,7 +220,16 @@ export default function ClientsDirectory() {
         console.log('Cliente seleccionado:', selectedClient);
 
         if (!selectedClient.telefono) {
-            alert("Este cliente no tiene número de teléfono registrado.");
+            setSystemModal({
+                isOpen: true,
+                title: 'Sin Teléfono',
+                message: 'Este cliente no tiene número de teléfono registrado.',
+                type: 'alert',
+                variant: 'warning',
+                onConfirm: undefined,
+                confirmText: 'Entendido',
+                cancelText: ''
+            });
             return;
         }
 
@@ -212,7 +239,16 @@ export default function ClientsDirectory() {
         const phone = formatPhoneForWhatsApp(selectedClient.telefono);
 
         if (!phone) {
-            alert("El número de teléfono no es válido para WhatsApp.");
+            setSystemModal({
+                isOpen: true,
+                title: 'Teléfono Inválido',
+                message: 'El número de teléfono no es válido para WhatsApp.',
+                type: 'alert',
+                variant: 'warning',
+                onConfirm: undefined,
+                confirmText: 'Entendido',
+                cancelText: ''
+            });
             return;
         }
 
@@ -403,6 +439,27 @@ export default function ClientsDirectory() {
                     </div>
                 </nav>
             </div>
+            {/* System Modal */}
+            <SystemModal
+                isOpen={systemModal.isOpen}
+                onClose={closeSystemModal}
+                title={systemModal.title}
+                message={systemModal.message}
+                type={systemModal.type}
+                variant={systemModal.variant}
+                onConfirm={systemModal.onConfirm}
+                confirmText={systemModal.confirmText}
+                cancelText={systemModal.cancelText}
+            />
+            {/* WhatsApp Modal */}
+            <WhatsAppContactModal
+                isOpen={showWhatsAppModal}
+                onClose={() => setShowWhatsAppModal(false)}
+                clientName={selectedClient?.nombre || ""}
+                clientPhone={selectedClient?.telefono || ""}
+                appointmentDate={selectedClient?.nextAppointment?.fecha}
+                appointmentTime={selectedClient?.nextAppointment?.hora_inicio}
+            />
         </div>
     );
 }
@@ -446,12 +503,15 @@ function ClientCard({ client, onWhatsAppClick }: { client: Client, onWhatsAppCli
                         e.stopPropagation();
                         onWhatsAppClick(client);
                     }}
-                    className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/10 text-emerald-600 dark:text-emerald-400 py-2 rounded-xl text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-all active:scale-95"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-green-500 dark:bg-green-600 text-white py-2 rounded-xl text-xs font-bold hover:bg-green-600 dark:hover:bg-green-500 transition-all active:scale-95 shadow-md shadow-green-500/20"
                 >
                     {/* <span className="material-symbols-outlined text-sm">chat</span> */}
                     WhatsApp
                 </button>
             </div>
+
         </div>
     );
 }
+
+

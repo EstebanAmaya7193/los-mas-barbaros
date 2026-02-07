@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import SystemModal from "@/components/SystemModal";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 interface Barber {
@@ -53,6 +54,22 @@ export default function SettingsPage() {
         hora_fin: "14:00",
         selectedDays: [] as number[] // For recurring blocks
     });
+
+    // System Modal State
+    const [systemModal, setSystemModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'alert' as 'alert' | 'confirm',
+        variant: 'info' as 'info' | 'success' | 'warning' | 'danger',
+        onConfirm: undefined as (() => void) | undefined,
+        confirmText: 'Aceptar',
+        cancelText: 'Cancelar'
+    });
+
+    const closeSystemModal = () => {
+        setSystemModal(prev => ({ ...prev, isOpen: false }));
+    };
 
     const fetchData = React.useCallback(async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -159,13 +176,16 @@ export default function SettingsPage() {
                 });
 
                 if (conflictsOnDay.length > 0) {
-                    const confirmRedirect = confirm(
-                        `⚠️ No puedes deshabilitar este día porque tienes ${conflictsOnDay.length} citas futuras programadas.\n\n¿Deseas ir a la agenda para gestionarlas?`
-                    );
-
-                    if (confirmRedirect) {
-                        router.push("/admin/agenda");
-                    }
+                    setSystemModal({
+                        isOpen: true,
+                        title: 'Horario con Citas Activas',
+                        message: `No puedes deshabilitar este día porque tienes ${conflictsOnDay.length} citas futuras programadas. ¿Deseas ir a la agenda para gestionarlas?`,
+                        type: 'confirm',
+                        variant: 'warning',
+                        confirmText: 'Ir a la Agenda',
+                        cancelText: 'Entendido',
+                        onConfirm: () => router.push("/admin/agenda")
+                    });
                     return; // Abort toggle
                 }
             }
@@ -238,13 +258,31 @@ export default function SettingsPage() {
             // Batch update state with the authoritative data from DB
             setSchedules(updatedSchedules);
 
-            alert("¡Cambios guardados correctamente! ✨");
+            setSystemModal({
+                isOpen: true,
+                title: '¡Cambios Guardados!',
+                message: 'Tu configuración de horarios se ha actualizado correctamente.',
+                type: 'alert',
+                variant: 'success',
+                onConfirm: undefined,
+                confirmText: 'Genial',
+                cancelText: ''
+            });
             // REMOVED fetchData() to avoid PWA cache race conditions. 
             // The local state is now in sync with what the server just confirmed.
         } catch (err: unknown) {
             console.error("Error saving settings:", err);
             const errorMessage = err instanceof Error ? err.message : "Error desconocido";
-            alert("Error al guardar: " + errorMessage);
+            setSystemModal({
+                isOpen: true,
+                title: 'Error al Guardar',
+                message: errorMessage,
+                type: 'alert',
+                variant: 'danger',
+                onConfirm: undefined,
+                confirmText: 'Entendido',
+                cancelText: ''
+            });
         } finally {
             setSaving(false);
         }
@@ -469,6 +507,19 @@ export default function SettingsPage() {
 
                 <div className="h-10"></div>
             </main>
+
+            {/* System Modal */}
+            <SystemModal
+                isOpen={systemModal.isOpen}
+                onClose={closeSystemModal}
+                title={systemModal.title}
+                message={systemModal.message}
+                type={systemModal.type}
+                variant={systemModal.variant}
+                onConfirm={systemModal.onConfirm}
+                confirmText={systemModal.confirmText}
+                cancelText={systemModal.cancelText}
+            />
 
             {/* Block Modal */}
             {showBlockModal && (

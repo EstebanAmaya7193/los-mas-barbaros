@@ -11,6 +11,8 @@ interface WhatsAppContactModalProps {
     appointmentTime?: string;
 }
 
+import SystemModal from './SystemModal';
+
 export default function WhatsAppContactModal({
     isOpen,
     onClose,
@@ -19,6 +21,20 @@ export default function WhatsAppContactModal({
     appointmentDate,
     appointmentTime
 }: WhatsAppContactModalProps) {
+    const [systemModal, setSystemModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        type: 'alert' as 'alert' | 'confirm',
+        variant: 'info' as 'info' | 'success' | 'warning' | 'danger',
+        onConfirm: undefined as (() => void) | undefined,
+        confirmText: 'Aceptar',
+        cancelText: 'Cancelar'
+    });
+
+    const closeSystemModal = () => {
+        setSystemModal(prev => ({ ...prev, isOpen: false }));
+    };
 
     const formatPhoneForWhatsApp = (phone: string | null | undefined): string => {
         if (!phone) return '';
@@ -74,7 +90,16 @@ export default function WhatsAppContactModal({
         const phone = formatPhoneForWhatsApp(clientPhone);
 
         if (!phone) {
-            alert("No se puede abrir WhatsApp sin un número de teléfono válido.");
+            setSystemModal({
+                isOpen: true,
+                title: 'Número Inválido',
+                message: 'No se puede abrir WhatsApp sin un número de teléfono válido.',
+                type: 'alert',
+                variant: 'warning',
+                onConfirm: undefined,
+                confirmText: 'Entendido',
+                cancelText: ''
+            });
             return;
         }
 
@@ -158,6 +183,19 @@ export default function WhatsAppContactModal({
                     Cancelar
                 </button>
             </div>
+
+            {/* System Modal for errors inside the modal */}
+            <SystemModal
+                isOpen={systemModal.isOpen}
+                onClose={closeSystemModal}
+                title={systemModal.title}
+                message={systemModal.message}
+                type={systemModal.type}
+                variant={systemModal.variant}
+                onConfirm={systemModal.onConfirm}
+                confirmText={systemModal.confirmText}
+                cancelText={systemModal.cancelText}
+            />
         </div>
     );
 }
