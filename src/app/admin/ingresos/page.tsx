@@ -585,8 +585,8 @@ export default function ControlIngresos() {
                 </div>
 
                 {/* Bottom Navigation */}
-                <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-2 pt-2 px-4 pointer-events-none">
-                    <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl">
+                <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-safe pt-2 px-4 pointer-events-none">
+                    <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md border border-white/20 dark:border-white/10">
                         <Link href="/admin/barber" className="flex flex-col items-center justify-center w-16 h-full gap-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200">
                             <span className="material-symbols-outlined text-[26px]">grid_view</span>
                             <span className="text-[10px] font-medium">Panel</span>

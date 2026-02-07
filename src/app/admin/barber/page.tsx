@@ -516,6 +516,11 @@ export default function BarberAdmin() {
     return (
 
         <div className="bg-background-light dark:bg-background-dark font-display text-primary dark:text-white antialiased selection:bg-black selection:text-white min-h-screen">
+            <div className="fixed top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+                <div className="absolute top-[-10%] right-[-5%] w-[300px] h-[300px] rounded-full bg-gradient-to-br from-gray-200 to-transparent opacity-60 blur-3xl dark:from-gray-800"></div>
+                <div className="absolute bottom-[10%] left-[-10%] w-[250px] h-[250px] rounded-full bg-gradient-to-tr from-gray-300 to-transparent opacity-60 blur-3xl dark:from-gray-700"></div>
+            </div>
+
             {/* Confirmation Modal */}
             {showConfirmModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
@@ -1067,8 +1072,8 @@ export default function BarberAdmin() {
 
                 {/* Bottom Navigation */}
 
-                <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-2 pt-2 px-4 pointer-events-none">
-                    <div className="glass-card-strong w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl bg-white/60 backdrop-blur-sm">
+                <nav className="fixed bottom-0 left-0 w-full z-30 flex justify-center pb-safe pt-2 px-4 pointer-events-none">
+                    <div className="w-full max-w-md rounded-2xl flex justify-around items-center h-16 pointer-events-auto shadow-2xl bg-white/65 dark:bg-neutral-900/65 backdrop-blur-xl border border-white/20 dark:border-white/10">
                         <Link href="/admin/barber" className="flex flex-col items-center justify-center w-16 h-full gap-1 text-primary dark:text-white">
                             <span className="material-symbols-outlined text-[26px]">grid_view</span>
                             <span className="text-[10px] font-medium">Panel</span>
