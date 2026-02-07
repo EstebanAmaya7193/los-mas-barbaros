@@ -20,7 +20,8 @@ export default function WhatsAppContactModal({
     appointmentTime
 }: WhatsAppContactModalProps) {
 
-    const formatPhoneForWhatsApp = (phone: string): string => {
+    const formatPhoneForWhatsApp = (phone: string | null | undefined): string => {
+        if (!phone) return '';
         let cleaned = phone.replace(/[\s\-\(\)]/g, '');
         if (!cleaned.startsWith('+') && !cleaned.startsWith('57')) {
             cleaned = '57' + cleaned;
@@ -71,6 +72,12 @@ export default function WhatsAppContactModal({
     const sendWhatsApp = (template: string) => {
         const message = template === 'custom' ? '' : getMessageTemplate(template);
         const phone = formatPhoneForWhatsApp(clientPhone);
+
+        if (!phone) {
+            alert("No se puede abrir WhatsApp sin un número de teléfono válido.");
+            return;
+        }
+
         const whatsappUrl = `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ''}`;
 
         window.open(whatsappUrl, '_blank');

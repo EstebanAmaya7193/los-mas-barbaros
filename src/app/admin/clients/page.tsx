@@ -144,7 +144,8 @@ export default function ClientsDirectory() {
         setShowWhatsAppModal(true);
     };
 
-    const formatPhoneForWhatsApp = (phone: string): string => {
+    const formatPhoneForWhatsApp = (phone: string | null | undefined): string => {
+        if (!phone) return '';
         let cleaned = phone.replace(/[\s\-\(\)]/g, '');
         if (!cleaned.startsWith('+') && !cleaned.startsWith('57')) {
             cleaned = '57' + cleaned;
@@ -199,12 +200,22 @@ export default function ClientsDirectory() {
 
         // Debug log
         console.log('Cliente seleccionado:', selectedClient);
-        console.log('Próxima cita:', selectedClient.nextAppointment);
+
+        if (!selectedClient.telefono) {
+            alert("Este cliente no tiene número de teléfono registrado.");
+            return;
+        }
 
         const message = template === 'custom' ? '' : getMessageTemplate(template);
         console.log('Mensaje generado:', message);
 
         const phone = formatPhoneForWhatsApp(selectedClient.telefono);
+
+        if (!phone) {
+            alert("El número de teléfono no es válido para WhatsApp.");
+            return;
+        }
+
         const whatsappUrl = `https://wa.me/${phone}${message ? `?text=${encodeURIComponent(message)}` : ''}`;
 
         window.open(whatsappUrl, '_blank');

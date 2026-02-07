@@ -131,7 +131,47 @@ export default function SettingsPage() {
 
     useAutoRefresh(fetchData);
 
-    const handleToggleDay = (dia: number) => {
+    const handleToggleDay = async (dia: number) => {
+        // Find current state
+        const currentSchedule = schedules.find(s => s.dia_semana === dia);
+        if (!currentSchedule) return;
+
+        // If currently active and we are disabling it...
+        if (currentSchedule.activo) {
+            // Check for future appointments on this day of week
+            const today = new Date().toISOString().split('T')[0];
+            const uniqueId = crypto.randomUUID();
+
+            const { data: conflicts, error } = await supabase
+                .from("citas")
+                .select("id, fecha, hora_inicio")
+                .eq("barbero_id", barber?.id)
+                .gte("fecha", today)
+                .in("estado", ["PROGRAMADA", "EN_ATENCION"])
+                .neq("id", uniqueId); // Cache Buster
+
+            if (conflicts && conflicts.length > 0) {
+                // Filter client-side to be precise about day of week (0-6)
+                // Use T12:00:00 to avoid timezone shifts
+                const conflictsOnDay = conflicts.filter(c => {
+                    const d = new Date(c.fecha + "T12:00:00");
+                    return d.getDay() === dia;
+                });
+
+                if (conflictsOnDay.length > 0) {
+                    const confirmRedirect = confirm(
+                        `⚠️ No puedes deshabilitar este día porque tienes ${conflictsOnDay.length} citas futuras programadas.\n\n¿Deseas ir a la agenda para gestionarlas?`
+                    );
+
+                    if (confirmRedirect) {
+                        router.push("/admin/agenda");
+                    }
+                    return; // Abort toggle
+                }
+            }
+        }
+
+        // Proceed with toggle if no conflicts or enabling
         setSchedules(prev => prev.map(s =>
             s.dia_semana === dia ? { ...s, activo: !s.activo } : s
         ));
